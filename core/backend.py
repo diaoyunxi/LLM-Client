@@ -5,11 +5,19 @@
 
 import base64
 import json
+import os
+import logging
 import requests
 from abc import ABC, abstractmethod
 from typing import Generator, List, Dict, Any, Optional, Union
 from dataclasses import dataclass, field
 import ollama
+
+
+logger = logging.getLogger("backend")
+
+# 通用错误消息, 避免向后端用户泄露内部异常细节
+GENERIC_ERROR_MSG = "后端服务暂时不可用"
 
 
 @dataclass
@@ -37,10 +45,49 @@ class ModelInfo:
 class Backend(ABC):
     """后端抽象基类"""
 
+    # 请求重试配置
+    MAX_RETRIES = 3
+    RETRY_BACKOFF_BASE = 1.0  # 退避基数 (秒), 第 n 次重试等待 base * 2^n
+
     def __init__(self, host: str = "localhost", port: int = 11434):
         self.host = host
         self.port = port
         self.base_url = f"http://{host}:{port}"
+
+    def _request_with_retry(self, func, *args, **kwargs):
+        """
+        带指数退避的请求重试机制
+
+        最多重试 MAX_RETRIES 次, 每次重试前等待 RETRY_BACKOFF_BASE * 2^(attempt-1) 秒。
+        仅对网络/连接异常重试, 业务逻辑错误不重试。
+
+        Args:
+            func: 可调用对象 (如 self.client.chat 或 requests.post)
+            *args, **kwargs: 传递给 func 的参数
+
+        Returns:
+            func 的返回值
+
+        Raises:
+            最后一次重试仍失败时抛出原始异常
+        """
+        import time
+        last_exc = None
+        for attempt in range(1, self.MAX_RETRIES + 1):
+            try:
+                return func(*args, **kwargs)
+            except (requests.ConnectionError, requests.Timeout, OSError) as e:
+                last_exc = e
+                if attempt < self.MAX_RETRIES:
+                    delay = self.RETRY_BACKOFF_BASE * (2 ** (attempt - 1))
+                    logger.warning("请求失败 (第 %d 次), %.1fs 后重试: %s", attempt, delay, e)
+                    time.sleep(delay)
+                else:
+                    logger.warning("请求失败, 已达最大重试次数 %d: %s", self.MAX_RETRIES, e)
+            except Exception as e:
+                # 非网络异常, 不重试直接抛出
+                raise
+        raise last_exc
 
     @abstractmethod
     def list_models(self) -> List[ModelInfo]:
@@ -78,7 +125,16 @@ class Backend(ABC):
         pass
 
     def encode_image(self, image_path: str) -> str:
-        """将图片转为 base64"""
+        """
+        将图片转为 base64
+
+        安全限制: 仅允许读取用户主目录下的文件, 防止越权读取系统敏感文件。
+        """
+        # 路径校验: 限制只能读取用户目录下的文件
+        home_dir = os.path.expanduser("~")
+        real_path = os.path.realpath(image_path)
+        if not real_path.startswith(home_dir):
+            raise PermissionError(f"安全限制: 仅允许读取用户目录 ({home_dir}) 下的文件")
         with open(image_path, "rb") as f:
             return base64.b64encode(f.read()).decode("utf-8")
 
@@ -108,7 +164,8 @@ class OllamaBackend(Backend):
                 info.supports_tools = True  # Ollama 支持工具调用
                 models.append(info)
         except Exception as e:
-            print(f"[OllamaBackend] 获取模型列表失败: {e}")
+            # 异常详情记录到日志, 不直接暴露给用户
+            logger.warning("Ollama 获取模型列表失败: %s", e)
         return models
 
     def _convert_messages(self, messages: List[ChatMessage]) -> List[Dict[str, Any]]:
@@ -151,7 +208,9 @@ class OllamaBackend(Backend):
                 if content:
                     yield content
         except Exception as e:
-            yield f"\n[错误] Ollama 对话失败: {e}\n"
+            # 异常详情记录到日志, 向用户返回通用错误消息
+            logger.warning("Ollama 对话失败: %s", e)
+            yield f"\n[错误] {GENERIC_ERROR_MSG}\n"
 
     def chat_complete(
         self,
@@ -166,7 +225,8 @@ class OllamaBackend(Backend):
         options.update(kwargs)
 
         try:
-            response = self.client.chat(
+            response = self._request_with_retry(
+                self.client.chat,
                 model=model,
                 messages=ollama_messages,
                 tools=tools,
@@ -175,7 +235,9 @@ class OllamaBackend(Backend):
             )
             return response
         except Exception as e:
-            return {"error": str(e), "message": {"content": f"[错误] Ollama 请求失败: {e}"}}
+            # 异常详情记录到日志, 向用户返回通用错误消息
+            logger.warning("Ollama 请求失败: %s", e)
+            return {"error": GENERIC_ERROR_MSG, "message": {"content": f"[错误] {GENERIC_ERROR_MSG}"}}
 
 
 class LlamaCppBackend(Backend):
@@ -202,7 +264,8 @@ class LlamaCppBackend(Backend):
                 info.supports_tools = False   # 原生 HTTP 接口不支持工具调用
                 models.append(info)
         except Exception as e:
-            print(f"[LlamaCppBackend] 获取模型信息失败: {e}")
+            # 异常详情记录到日志, 不直接暴露给用户
+            logger.warning("llama.cpp 获取模型信息失败: %s", e)
             # 添加一个占位模型
             models.append(ModelInfo(name="llama.cpp-model", supports_vision=False, supports_tools=False))
         return models
@@ -264,7 +327,7 @@ class LlamaCppBackend(Backend):
                 f"{self.base_url}/v1/chat/completions",
                 json=payload,
                 stream=True,
-                timeout=300,
+                timeout=(10, 60),
             )
             for line in resp.iter_lines():
                 if line:
@@ -300,7 +363,7 @@ class LlamaCppBackend(Backend):
                 f"{self.base_url}/completion",
                 json=payload,
                 stream=True,
-                timeout=300,
+                timeout=(10, 60),
             )
             for line in resp.iter_lines():
                 if line:
@@ -323,7 +386,9 @@ class LlamaCppBackend(Backend):
                         except json.JSONDecodeError:
                             pass
         except Exception as e:
-            yield f"\n[错误] llama.cpp 连接失败: {e}\n"
+            # 异常详情记录到日志, 向用户返回通用错误消息
+            logger.warning("llama.cpp 连接失败: %s", e)
+            yield f"\n[错误] {GENERIC_ERROR_MSG}\n"
 
     def chat_complete(
         self,
@@ -351,11 +416,13 @@ class LlamaCppBackend(Backend):
             resp = requests.post(
                 f"{self.base_url}/v1/chat/completions",
                 json=payload,
-                timeout=300,
+                timeout=(10, 60),
             )
             return resp.json()
         except Exception as e:
-            return {"error": str(e)}
+            # 异常详情记录到日志, 向用户返回通用错误消息
+            logger.warning("llama.cpp 请求失败: %s", e)
+            return {"error": GENERIC_ERROR_MSG}
 
     def _tools_to_prompt(self, tools: List[Dict[str, Any]]) -> str:
         """将工具定义转为 prompt 文本（llama.cpp 原生不支持工具调用时的降级方案）"""

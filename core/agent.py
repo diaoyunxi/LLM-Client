@@ -5,12 +5,16 @@
 
 import json
 import re
+import logging
 from typing import List, Dict, Any, Optional, Generator, Callable
 from dataclasses import dataclass, field
 
 from .backend import Backend, ChatMessage
 from .conversation import Conversation
 from .tools.loader import ToolLoader
+
+
+logger = logging.getLogger("agent")
 
 
 @dataclass
@@ -95,7 +99,7 @@ class AgentLoop:
             tool_name = match.group(1)
             try:
                 args = json.loads(match.group(2).strip())
-            except:
+            except Exception:
                 args = {"content": match.group(2).strip()}
             tool_calls.append({"name": tool_name, "arguments": args})
 
@@ -108,7 +112,7 @@ class AgentLoop:
         if isinstance(args, str):
             try:
                 args = json.loads(args)
-            except:
+            except Exception:
                 args = {"input": args}
         return {"name": name, "arguments": args}
 
@@ -138,9 +142,9 @@ class AgentLoop:
             messages = self.conversation.get_context_messages()
             tools = self.tool_loader.get_tool_definitions()
 
-            # 调用模型
-            if stream and iteration == 1:
-                # 第一次迭代使用流式输出
+            # 调用模型: 统一使用流式或非流式, 不在流式输出后重新请求
+            if stream:
+                # 流式输出: 逐字产生回复, 仅从文本中提取工具调用, 不重新请求
                 full_response = ""
                 for chunk in self.backend.chat(
                     model=self.model,
@@ -152,31 +156,8 @@ class AgentLoop:
                     full_response += chunk
                     yield chunk
 
-                # 检查工具调用
+                # 从流式输出文本中提取工具调用 (不再发起非流式重请求)
                 tool_calls = self._extract_tool_calls(full_response)
-
-                # 如果是 Ollama 后端，尝试从原生格式解析
-                if not tool_calls and hasattr(self.backend, 'client'):
-                    try:
-                        response = self.backend.chat_complete(
-                            model=self.model,
-                            messages=messages,
-                            tools=tools if tools else None,
-                            temperature=self.temperature,
-                        )
-                        msg = response.get("message", {})
-                        native_tool_calls = msg.get("tool_calls", [])
-                        for tc in native_tool_calls:
-                            func = tc.get("function", {})
-                            tool_calls.append({
-                                "name": func.get("name", ""),
-                                "arguments": func.get("arguments", {}),
-                            })
-                        # 如果有原生工具调用，可能需要修正回复内容
-                        if native_tool_calls and not full_response.strip():
-                            full_response = msg.get("content", "")
-                    except Exception as e:
-                        pass
 
                 self.conversation.add_message("assistant", full_response)
 

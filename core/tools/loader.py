@@ -6,6 +6,7 @@
 import os
 import sys
 import json
+import uuid
 import importlib.util
 from typing import Dict, List, Any, Optional, Callable
 from .parser import ToolDefinition, parse_tool_from_file
@@ -50,8 +51,8 @@ class ToolLoader:
         if not tool_def:
             return False
 
-        # 动态导入模块
-        module_name = f"tool_{tool_def.name}_{hash(filepath) % 10000}"
+        # 动态导入模块 (使用 uuid 生成唯一模块名, 避免 hash() 跨进程不一致)
+        module_name = f"tool_{tool_def.name}_{uuid.uuid4().hex[:8]}"
         try:
             spec = importlib.util.spec_from_file_location(module_name, filepath)
             module = importlib.util.module_from_spec(spec)
@@ -130,10 +131,9 @@ class ToolLoader:
     def unload_tool(self, name: str) -> bool:
         """卸载工具"""
         if name in self.tools:
-            del self.tools[name]
-            del self._functions[name]
-            if name in self._modules:
-                del self._modules[name]
+            self.tools.pop(name, None)
+            self._functions.pop(name, None)
+            self._modules.pop(name, None)
             return True
         return False
 

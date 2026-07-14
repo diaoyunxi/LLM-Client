@@ -98,19 +98,16 @@ def main():
     # 根据模式启动对应界面
     if args.mode == "cli":
         from interfaces.cli import run_cli
-        # 将参数传递给 CLI
-        sys.argv = [
-            sys.argv[0],
-            "--backend", args.backend,
-            "--host", args.host,
-            "--model", args.model,
-            "--tools-dir", args.tools_dir,
-            "--system", args.system,
-            "--image", args.image,
-        ]
-        if args.port:
-            sys.argv.extend(["--port", str(args.port)])
-        run_cli()
+        # 直接传递参数, 不重写 sys.argv
+        run_cli(
+            backend=args.backend,
+            host=args.host,
+            port=args.port,
+            model=args.model,
+            tools_dir=args.tools_dir,
+            system=args.system,
+            image=args.image,
+        )
 
     elif args.mode == "tui":
         from interfaces.tui import run_tui

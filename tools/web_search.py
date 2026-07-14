@@ -16,7 +16,11 @@ TOOL_PARAMETERS:
 import requests
 import re
 import json
+import logging
 from urllib.parse import quote_plus, unquote
+
+
+logger = logging.getLogger("web_search")
 
 
 def _search_duckduckgo(query: str, max_results: int = 5) -> list:
@@ -81,6 +85,7 @@ def _search_duckduckgo(query: str, max_results: int = 5) -> list:
                 })
 
     except requests.RequestException as e:
+        logger.warning("DuckDuckGo HTML 搜索失败: %s", e)
         return []
 
     return results
@@ -128,7 +133,8 @@ def _search_ddg_api(query: str, max_results: int = 5) -> list:
                     })
 
         return results
-    except Exception:
+    except Exception as e:
+        logger.warning("DuckDuckGo API 搜索失败: %s", e)
         return []
 
 

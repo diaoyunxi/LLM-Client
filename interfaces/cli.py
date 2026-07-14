@@ -54,17 +54,49 @@ def select_model(backend) -> Optional[str]:
         print("无效选择，请重试。")
 
 
-def run_cli():
-    parser = argparse.ArgumentParser(description="LLM 客户端 CLI")
-    parser.add_argument("--backend", choices=["ollama", "llamacpp"], default="ollama",
-                        help="后端类型")
-    parser.add_argument("--host", default="localhost", help="后端主机地址")
-    parser.add_argument("--port", type=int, default=None, help="后端端口")
-    parser.add_argument("--model", default="", help="模型名称")
-    parser.add_argument("--tools-dir", default="tools", help="工具目录")
-    parser.add_argument("--system", default="", help="系统提示词")
-    parser.add_argument("--image", default="", help="上传图片路径（多模态）")
-    args = parser.parse_args()
+def run_cli(backend: str = None, host: str = None, port: int = None,
+            model: str = None, tools_dir: str = None, system: str = None,
+            image: str = None):
+    """
+    启动 CLI 界面
+
+    支持两种调用方式:
+    1. 直接传递关键字参数 (由 main.py 调用, 不重写 sys.argv)
+    2. 不传参数时从命令行解析 (兼容独立运行 python -m interfaces.cli)
+
+    Args:
+        backend: 后端类型 (ollama / llamacpp)
+        host: 后端主机地址
+        port: 后端端口
+        model: 模型名称
+        tools_dir: 工具目录
+        system: 系统提示词
+        image: 图片路径
+    """
+    # 若未通过参数传入, 则从命令行解析 (兼容直接运行)
+    if backend is None:
+        parser = argparse.ArgumentParser(description="LLM 客户端 CLI")
+        parser.add_argument("--backend", choices=["ollama", "llamacpp"], default="ollama",
+                            help="后端类型")
+        parser.add_argument("--host", default="localhost", help="后端主机地址")
+        parser.add_argument("--port", type=int, default=None, help="后端端口")
+        parser.add_argument("--model", default="", help="模型名称")
+        parser.add_argument("--tools-dir", default="tools", help="工具目录")
+        parser.add_argument("--system", default="", help="系统提示词")
+        parser.add_argument("--image", default="", help="上传图片路径（多模态）")
+        args = parser.parse_args()
+    else:
+        # 使用直接传入的参数
+        from types import SimpleNamespace
+        args = SimpleNamespace(
+            backend=backend,
+            host=host or "localhost",
+            port=port,
+            model=model or "",
+            tools_dir=tools_dir or "tools",
+            system=system or "",
+            image=image or "",
+        )
 
     print_banner()
 
@@ -136,7 +168,12 @@ def run_cli():
 
         # 处理命令
         if user_input.startswith("/"):
-            cmd = user_input[1:].lower().split()[0]
+            # 添加空列表检查, 防止用户仅输入 "/" 时 split() 返回空列表导致 IndexError
+            parts = user_input[1:].lower().split()
+            if not parts:
+                print("[系统] 请输入有效命令，输入 /help 查看帮助。")
+                continue
+            cmd = parts[0]
             if cmd in ("quit", "exit", "q"):
                 print("再见！")
                 break
