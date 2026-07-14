@@ -1,0 +1,5 @@
+ollama>=0.3.0
+PyQt6>=6.6.0
+textual>=0.52.0
+requests>=2.31.0
+pillow>=10.0.0
