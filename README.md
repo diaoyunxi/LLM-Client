@@ -99,10 +99,13 @@ ollama pull llava  # 视觉模型
 # CLI 模式（默认）
 python main.py --mode cli --backend ollama --model llama3.1
 
-# TUI 模式
+# 启用思考过程显示（需模型支持，如 DeepSeek-R1、Qwen3）
+python main.py --mode cli --backend ollama --model deepseek-r1 --think
+
+# TUI 模式（默认启用思考过程显示）
 python main.py --mode tui --backend ollama
 
-# GUI 模式
+# GUI 模式（右侧参数面板可切换"显示思考过程"复选框）
 python main.py --mode gui --backend ollama
 
 # 连接远程 llama.cpp
@@ -209,6 +212,14 @@ def run(ip: str):
 ---
 
 ## 配置说明
+
+### 思考过程显示（Thinking）
+
+支持具备推理能力的模型（如 DeepSeek-R1、Qwen3、DeepSeek-v3.1、GPT-OSS），可实时流式显示模型的思考过程：
+
+- **CLI 模式**：添加 `--think` 参数启用，思考内容以灰色斜体显示
+- **TUI 模式**：默认启用，思考过程以独立区域显示
+- **GUI 模式**：右侧参数面板的"显示思考过程"复选框控制，默认勾选；思考过程以可折叠区域显示（点击展开/折叠）
 
 ### Ollama 后端
 

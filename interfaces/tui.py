@@ -10,7 +10,7 @@ from typing import Optional
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core.backend import OllamaBackend, LlamaCppBackend, ModelInfo
+from core.backend import OllamaBackend, LlamaCppBackend, ModelInfo, StreamChunk
 from core.conversation import Conversation, Message
 from core.agent import AgentLoop
 from core.tools.loader import ToolLoader
@@ -31,7 +31,7 @@ except ImportError:
 
 
 class ChatMessageWidget(Static):
-    """单条消息显示组件"""
+    """单条消息显示组件，支持思考过程折叠显示"""
 
     def __init__(self, message: Message, **kwargs):
         self.msg = message
@@ -49,6 +49,11 @@ class ChatMessageWidget(Static):
             yield Label(f"[{role_label}]", classes="msg-role")
             if self.msg.images:
                 yield Label(f"[图片: {len(self.msg.images)} 张]", classes="msg-image")
+            # 思考过程区域（灰色折叠显示）
+            if self.msg.thinking:
+                with Container(classes="thinking-container"):
+                    yield Label("💭 思考过程", classes="thinking-label")
+                    yield Static(self.msg.thinking, classes="thinking-content")
             yield Markdown(self.msg.content, classes="msg-content")
 
 
@@ -146,6 +151,25 @@ class LLMClientTUI(App):
     .msg-image {
         color: $accent;
         text-style: italic;
+    }
+
+    .thinking-container {
+        margin: 0 1;
+        padding: 1;
+        border: dashed $surface-lighten-1;
+        background: $surface-darken-2;
+    }
+
+    .thinking-label {
+        color: $warning-darken-1;
+        text-style: bold italic;
+        margin-bottom: 1;
+    }
+
+    .thinking-content {
+        color: $text-disabled;
+        dock: top;
+        height: auto;
     }
 
     #settings-container {
@@ -334,6 +358,7 @@ class LLMClientTUI(App):
                 conversation=self.conversation,
                 tool_loader=self.tool_loader,
                 model=self.current_model,
+                think=True,
             )
 
         # 添加用户消息到显示
@@ -353,16 +378,21 @@ class LLMClientTUI(App):
         messages_scroll = self.query_one("#messages-scroll", VerticalScroll)
 
         # 创建 AI 消息占位
-        ai_msg = Message(role="assistant", content="")
+        ai_msg = Message(role="assistant", content="", thinking="")
         self.conversation.messages.append(ai_msg)
         msg_widget = ChatMessageWidget(ai_msg)
         await messages_scroll.mount(msg_widget)
 
         full_content = ""
+        full_thinking = ""
         try:
             for chunk in self.agent.run(text, images=self.image_attachments, stream=True):
-                full_content += chunk
+                if chunk.thinking:
+                    full_thinking += chunk.thinking
+                if chunk.content:
+                    full_content += chunk.content
                 ai_msg.content = full_content
+                ai_msg.thinking = full_thinking
                 # 刷新显示
                 msg_widget.refresh()
         except Exception as e:

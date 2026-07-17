@@ -10,7 +10,7 @@ from typing import Optional, List
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core.backend import OllamaBackend, LlamaCppBackend, ModelInfo
+from core.backend import OllamaBackend, LlamaCppBackend, ModelInfo, StreamChunk
 from core.conversation import Conversation, Message
 from core.agent import AgentLoop
 from core.tools.loader import ToolLoader
@@ -33,7 +33,9 @@ except ImportError:
 
 class ChatWorker(QThread):
     """后台对话线程"""
-    chunk_ready = pyqtSignal(str)
+    chunk_ready = pyqtSignal(str)           # 正式回复内容
+    thinking_chunk_ready = pyqtSignal(str)  # 思考过程内容
+    thinking_done = pyqtSignal()             # 思考结束，开始正式回复
     tool_called = pyqtSignal(str, str)  # name, args
     tool_result = pyqtSignal(str, str)  # name, result
     finished_signal = pyqtSignal()
@@ -51,7 +53,10 @@ class ChatWorker(QThread):
             for chunk in self.agent.run(self.text, images=self.images, stream=True):
                 if not self._is_running:
                     break
-                self.chunk_ready.emit(chunk)
+                if chunk.thinking:
+                    self.thinking_chunk_ready.emit(chunk.thinking)
+                if chunk.content:
+                    self.chunk_ready.emit(chunk.content)
             self.finished_signal.emit()
         except Exception as e:
             self.error_signal.emit(str(e))
@@ -62,11 +67,15 @@ class ChatWorker(QThread):
 
 
 class MessageBubble(QFrame):
-    """消息气泡组件"""
+    """消息气泡组件，支持思考过程折叠显示"""
 
     def __init__(self, message: Message, parent=None):
         super().__init__(parent)
         self.message = message
+        self._thinking_edit = None
+        self._thinking_label = None
+        self._thinking_container = None
+        self._thinking_collapsed = True
         self._setup_ui()
 
     def _setup_ui(self):
@@ -91,6 +100,10 @@ class MessageBubble(QFrame):
             img_label = QLabel(f"[图片附件: {len(self.message.images)} 张]")
             img_label.setStyleSheet("color: #2196F3; font-style: italic; font-size: 12px;")
             layout.addWidget(img_label)
+
+        # 思考过程折叠区域（仅 assistant 消息且存在 thinking 时显示）
+        if self.message.thinking:
+            self._add_thinking_widget(layout, self.message.thinking)
 
         # 内容
         self.content_edit = QPlainTextEdit()
@@ -143,13 +156,106 @@ class MessageBubble(QFrame):
         self.content_edit.setSizeAdjustPolicy(QPlainTextEdit.SizeAdjustPolicy.AdjustToContents)
         layout.addWidget(self.content_edit)
 
+    def _add_thinking_widget(self, layout, thinking_text: str):
+        """添加思考过程折叠组件"""
+        self._thinking_container = QWidget()
+        thinking_layout = QVBoxLayout(self._thinking_container)
+        thinking_layout.setContentsMargins(0, 0, 0, 4)
+        thinking_layout.setSpacing(2)
+
+        # 折叠标题
+        self._thinking_label = QLabel("💭 思考过程 (点击展开/折叠)")
+        self._thinking_label.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._thinking_label.setStyleSheet("color: #999; font-size: 11px; font-style: italic;")
+        self._thinking_label.mousePressEvent = self._toggle_thinking
+        thinking_layout.addWidget(self._thinking_label)
+
+        # 思考内容（默认折叠）
+        self._thinking_edit = QPlainTextEdit()
+        self._thinking_edit.setPlainText(thinking_text)
+        self._thinking_edit.setReadOnly(True)
+        self._thinking_edit.setMaximumBlockCount(0)
+        self._thinking_edit.setStyleSheet("""
+            background-color: #FAFAFA;
+            border: 1px solid #EEE;
+            border-radius: 4px;
+            color: #888;
+            font-size: 12px;
+            padding: 4px;
+        """)
+        self._thinking_edit.setVisible(False)
+        doc_height = self._thinking_edit.document().size().height()
+        self._thinking_edit.setMinimumHeight(int(doc_height) + 20)
+        thinking_layout.addWidget(self._thinking_edit)
+
+        layout.addWidget(self._thinking_container)
+
+    def _toggle_thinking(self, event):
+        """切换思考过程展开/折叠"""
+        if self._thinking_edit:
+            self._thinking_collapsed = not self._thinking_collapsed
+            self._thinking_edit.setVisible(not self._thinking_collapsed)
+            if self._thinking_collapsed:
+                self._thinking_label.setText("💭 思考过程 (点击展开/折叠)")
+            else:
+                self._thinking_label.setText("💭 思考过程 (点击折叠)")
+
     def append_text(self, text: str):
-        """追加文本（流式输出用）"""
+        """追加文本（流式输出用，仅追加正式回复）"""
         self.message.content += text
         self.content_edit.setPlainText(self.message.content)
         # 调整高度
         doc_height = self.content_edit.document().size().height()
         self.content_edit.setMinimumHeight(int(doc_height) + 20)
+
+    def append_thinking(self, text: str):
+        """追加思考内容（流式输出用）"""
+        self.message.thinking += text
+        # 如果还没有 thinking widget，动态添加
+        if self._thinking_edit is None:
+            # 在 content_edit 之前插入
+            self._add_thinking_widget_v2(text)
+            return
+        self._thinking_edit.setPlainText(self.message.thinking)
+        doc_height = self._thinking_edit.document().size().height()
+        self._thinking_edit.setMinimumHeight(int(doc_height) + 20)
+
+    def _add_thinking_widget_v2(self, initial_text: str):
+        """动态添加思考过程折叠组件（流式输出时首次调用）"""
+        layout = self.layout()
+        self._thinking_container = QWidget()
+        thinking_layout = QVBoxLayout(self._thinking_container)
+        thinking_layout.setContentsMargins(0, 0, 0, 4)
+        thinking_layout.setSpacing(2)
+
+        self._thinking_label = QLabel("💭 思考中... (点击展开/折叠)")
+        self._thinking_label.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._thinking_label.setStyleSheet("color: #999; font-size: 11px; font-style: italic;")
+        self._thinking_label.mousePressEvent = self._toggle_thinking
+        thinking_layout.addWidget(self._thinking_label)
+
+        self._thinking_edit = QPlainTextEdit()
+        self._thinking_edit.setPlainText(initial_text)
+        self._thinking_edit.setReadOnly(True)
+        self._thinking_edit.setMaximumBlockCount(0)
+        self._thinking_edit.setStyleSheet("""
+            background-color: #FAFAFA;
+            border: 1px solid #EEE;
+            border-radius: 4px;
+            color: #888;
+            font-size: 12px;
+            padding: 4px;
+        """)
+        self._thinking_edit.setVisible(False)
+        thinking_layout.addWidget(self._thinking_edit)
+
+        # 在 content_edit 之前插入 thinking 区域
+        layout.insertWidget(layout.indexOf(self.content_edit), self._thinking_container)
+
+    def finalize_thinking(self):
+        """思考过程结束，更新标签"""
+        if self._thinking_label:
+            self._thinking_label.setText("💭 思考过程 (点击展开/折叠)")
 
 
 class SettingsDialog(QDialog):
@@ -391,6 +497,11 @@ class MainWindow(QMainWindow):
         self.max_iter_spin.setValue(10)
         params_layout.addRow("最大迭代:", self.max_iter_spin)
 
+        self.think_checkbox = QCheckBox("显示思考过程")
+        self.think_checkbox.setToolTip("启用模型思考过程显示（需模型支持，如 DeepSeek-R1、Qwen3）")
+        self.think_checkbox.setChecked(True)
+        params_layout.addRow(self.think_checkbox)
+
         right_layout.addWidget(params_group)
 
         status_label = QLabel("状态: 就绪")
@@ -529,10 +640,12 @@ class MainWindow(QMainWindow):
                 model=self.current_model,
                 max_iterations=self.max_iter_spin.value(),
                 temperature=self.temp_spin.value(),
+                think=self.think_checkbox.isChecked(),
             )
         else:
             self.agent.max_iterations = self.max_iter_spin.value()
             self.agent.temperature = self.temp_spin.value()
+            self.agent.think = self.think_checkbox.isChecked()
 
         # 添加用户消息
         self.conversation.add_message("user", text, images=self.image_attachments)
@@ -551,6 +664,8 @@ class MainWindow(QMainWindow):
         self.messages_layout.insertWidget(self.messages_layout.count() - 1, self.current_ai_bubble)
 
         self.chat_worker = ChatWorker(self.agent, text, self.image_attachments)
+        self.chat_worker.thinking_chunk_ready.connect(self.on_thinking_chunk)
+        self.chat_worker.thinking_done.connect(self.on_thinking_done)
         self.chat_worker.chunk_ready.connect(self.on_chunk_ready)
         self.chat_worker.finished_signal.connect(self.on_chat_finished)
         self.chat_worker.error_signal.connect(self.on_chat_error)
@@ -560,8 +675,16 @@ class MainWindow(QMainWindow):
         self.image_attachments = []
         self.image_label.setText("")
 
+    def on_thinking_chunk(self, text: str):
+        """收到思考过程内容"""
+        self.current_ai_bubble.append_thinking(text)
+
+    def on_thinking_done(self):
+        """思考过程结束"""
+        self.current_ai_bubble.finalize_thinking()
+
     def on_chunk_ready(self, chunk: str):
-        """收到新内容"""
+        """收到新内容（正式回复）"""
         self.current_ai_bubble.append_text(chunk)
         # 滚动到底部
         self.messages_container.parent().parent().verticalScrollBar().setValue(

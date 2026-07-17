@@ -93,6 +93,13 @@ def main():
         help="智能体最大迭代次数 (默认: 10)",
     )
 
+    parser.add_argument(
+        "--think",
+        action="store_true",
+        default=False,
+        help="启用模型思考过程显示（需模型支持，如 DeepSeek-R1、Qwen3）",
+    )
+
     args = parser.parse_args()
 
     # 根据模式启动对应界面

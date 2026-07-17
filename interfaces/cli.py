@@ -12,7 +12,7 @@ from typing import Optional
 # 将上级目录加入路径
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core.backend import OllamaBackend, LlamaCppBackend
+from core.backend import OllamaBackend, LlamaCppBackend, StreamChunk
 from core.conversation import Conversation
 from core.agent import AgentLoop
 from core.tools.loader import ToolLoader
@@ -84,6 +84,8 @@ def run_cli(backend: str = None, host: str = None, port: int = None,
         parser.add_argument("--tools-dir", default="tools", help="工具目录")
         parser.add_argument("--system", default="", help="系统提示词")
         parser.add_argument("--image", default="", help="上传图片路径（多模态）")
+        parser.add_argument("--think", action="store_true", default=False,
+                            help="启用模型思考过程显示（需模型支持，如 DeepSeek-R1）")
         args = parser.parse_args()
     else:
         # 使用直接传入的参数
@@ -96,6 +98,7 @@ def run_cli(backend: str = None, host: str = None, port: int = None,
             tools_dir=tools_dir or "tools",
             system=system or "",
             image=image or "",
+            think=False,  # 由 main.py 传入时单独处理
         )
 
     print_banner()
@@ -143,6 +146,7 @@ def run_cli(backend: str = None, host: str = None, port: int = None,
         tool_loader=tool_loader,
         model=model,
         max_iterations=10,
+        think=args.think,
     )
 
     print("输入 '/help' 查看命令，'/quit' 退出。\n")
@@ -217,8 +221,29 @@ def run_cli(backend: str = None, host: str = None, port: int = None,
         # 发送消息
         print("AI > ", end="", flush=True)
         try:
+            in_thinking_block = False
             for chunk in agent.run(user_input, images=images, stream=True):
-                print(chunk, end="", flush=True)
+                if chunk.thinking:
+                    # 思考内容：首次进入时打印标题
+                    if not in_thinking_block:
+                        in_thinking_block = True
+                        # 输出 ANSI 转义序列：灰色斜体
+                        sys.stdout.write("\033[2;3m")
+                        sys.stdout.write("[思考中...]\n")
+                        sys.stdout.flush()
+                    sys.stdout.write(chunk.thinking)
+                    sys.stdout.flush()
+                if chunk.content:
+                    # 正式回复：退出思考样式
+                    if in_thinking_block:
+                        in_thinking_block = False
+                        sys.stdout.write("\033[0m")  # 重置样式
+                        sys.stdout.write("\n")  # 思考与回复之间换行
+                    sys.stdout.write(chunk.content)
+                    sys.stdout.flush()
+            # 确保重置样式
+            if in_thinking_block:
+                sys.stdout.write("\033[0m\n")
             print()  # 换行
         except Exception as e:
             print(f"\n[错误] {e}")

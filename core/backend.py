@@ -21,6 +21,13 @@ GENERIC_ERROR_MSG = "后端服务暂时不可用"
 
 
 @dataclass
+class StreamChunk:
+    """流式输出块，区分思考内容和正式回复"""
+    thinking: str = ""   # 思考过程内容（可能为空）
+    content: str = ""    # 正式回复内容
+
+
+@dataclass
 class ChatMessage:
     """统一消息格式"""
     role: str  # system / user / assistant / tool
@@ -28,6 +35,7 @@ class ChatMessage:
     images: List[str] = field(default_factory=list)  # base64 编码的图片
     tool_calls: List[Dict[str, Any]] = field(default_factory=list)
     tool_call_id: Optional[str] = None
+    thinking: str = ""   # 模型思考过程（仅 assistant 消息）
 
 
 @dataclass
@@ -102,11 +110,12 @@ class Backend(ABC):
         tools: Optional[List[Dict[str, Any]]] = None,
         stream: bool = True,
         temperature: float = 0.7,
+        think: bool = False,
         **kwargs
-    ) -> Generator[str, None, None]:
+    ) -> Generator[StreamChunk, None, None]:
         """
         发起对话
-        返回生成器，逐字输出回复内容
+        返回生成器，逐字输出 StreamChunk（区分 thinking 和 content）
         """
         pass
 
@@ -189,8 +198,9 @@ class OllamaBackend(Backend):
         tools: Optional[List[Dict[str, Any]]] = None,
         stream: bool = True,
         temperature: float = 0.7,
+        think: bool = False,
         **kwargs
-    ) -> Generator[str, None, None]:
+    ) -> Generator[StreamChunk, None, None]:
         ollama_messages = self._convert_messages(messages)
         options = {"temperature": temperature}
         options.update(kwargs)
@@ -202,15 +212,18 @@ class OllamaBackend(Backend):
                 tools=tools,
                 stream=True,
                 options=options,
+                think=think,
             )
             for chunk in response:
-                content = chunk.get("message", {}).get("content", "")
-                if content:
-                    yield content
+                msg = chunk.get("message", {})
+                thinking_text = msg.get("thinking", "") or ""
+                content_text = msg.get("content", "") or ""
+                if thinking_text or content_text:
+                    yield StreamChunk(thinking=thinking_text, content=content_text)
         except Exception as e:
             # 异常详情记录到日志, 向用户返回通用错误消息
             logger.warning("Ollama 对话失败: %s", e)
-            yield f"\n[错误] {GENERIC_ERROR_MSG}\n"
+            yield StreamChunk(content=f"\n[错误] {GENERIC_ERROR_MSG}\n")
 
     def chat_complete(
         self,
@@ -218,6 +231,7 @@ class OllamaBackend(Backend):
         messages: List[ChatMessage],
         tools: Optional[List[Dict[str, Any]]] = None,
         temperature: float = 0.7,
+        think: bool = False,
         **kwargs
     ) -> Dict[str, Any]:
         ollama_messages = self._convert_messages(messages)
@@ -232,6 +246,7 @@ class OllamaBackend(Backend):
                 tools=tools,
                 stream=False,
                 options=options,
+                think=think,
             )
             return response
         except Exception as e:
@@ -303,8 +318,9 @@ class LlamaCppBackend(Backend):
         tools: Optional[List[Dict[str, Any]]] = None,
         stream: bool = True,
         temperature: float = 0.7,
+        think: bool = False,
         **kwargs
-    ) -> Generator[str, None, None]:
+    ) -> Generator[StreamChunk, None, None]:
         # llama.cpp HTTP server 使用 /completion 或 /v1/chat/completions
         # 优先尝试 chat completions 格式
         chat_messages = self._convert_messages(messages)
@@ -341,7 +357,7 @@ class LlamaCppBackend(Backend):
                             delta = chunk.get("choices", [{}])[0].get("delta", {})
                             content = delta.get("content", "")
                             if content:
-                                yield content
+                                yield StreamChunk(content=content)
                         except json.JSONDecodeError:
                             pass
         except Exception as e:
@@ -350,7 +366,7 @@ class LlamaCppBackend(Backend):
 
     def _fallback_completion(
         self, messages: List[ChatMessage], temperature: float, **kwargs
-    ) -> Generator[str, None, None]:
+    ) -> Generator[StreamChunk, None, None]:
         """使用 /completion 接口作为降级方案"""
         prompt = self._build_prompt(messages)
         payload = {
@@ -374,7 +390,7 @@ class LlamaCppBackend(Backend):
                             chunk = json.loads(data)
                             content = chunk.get("content", "")
                             if content:
-                                yield content
+                                yield StreamChunk(content=content)
                         except json.JSONDecodeError:
                             pass
                     else:
@@ -382,13 +398,13 @@ class LlamaCppBackend(Backend):
                             chunk = json.loads(line)
                             content = chunk.get("content", "")
                             if content:
-                                yield content
+                                yield StreamChunk(content=content)
                         except json.JSONDecodeError:
                             pass
         except Exception as e:
             # 异常详情记录到日志, 向用户返回通用错误消息
             logger.warning("llama.cpp 连接失败: %s", e)
-            yield f"\n[错误] {GENERIC_ERROR_MSG}\n"
+            yield StreamChunk(content=f"\n[错误] {GENERIC_ERROR_MSG}\n")
 
     def chat_complete(
         self,

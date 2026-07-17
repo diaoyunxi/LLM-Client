@@ -22,6 +22,7 @@ class Message:
     images: List[str] = field(default_factory=list)
     timestamp: float = field(default_factory=time.time)
     metadata: Dict[str, Any] = field(default_factory=dict)
+    thinking: str = ""  # 模型思考过程（仅 assistant 消息）
 
     def to_chat_message(self) -> ChatMessage:
         return ChatMessage(
@@ -30,6 +31,7 @@ class Message:
             images=self.images,
             tool_calls=self.metadata.get("tool_calls", []),
             tool_call_id=self.metadata.get("tool_call_id"),
+            thinking=self.thinking,
         )
 
     @classmethod
@@ -42,6 +44,7 @@ class Message:
                 "tool_calls": msg.tool_calls,
                 "tool_call_id": msg.tool_call_id,
             },
+            thinking=msg.thinking,
         )
 
 
@@ -61,13 +64,14 @@ class Conversation:
         if not self.id:
             self.id = f"conv_{int(time.time() * 1000)}"
 
-    def add_message(self, role: str, content: str, images: List[str] = None, **kwargs) -> Message:
+    def add_message(self, role: str, content: str, images: List[str] = None, thinking: str = "", **kwargs) -> Message:
         """添加消息"""
         msg = Message(
             role=role,
             content=content,
             images=images or [],
             metadata=kwargs,
+            thinking=thinking,
         )
         self.messages.append(msg)
         self.updated_at = time.time()
@@ -150,6 +154,7 @@ class Conversation:
                     "images": m.images,
                     "timestamp": m.timestamp,
                     "metadata": m.metadata,
+                    "thinking": m.thinking,
                 }
                 for m in self.messages
             ],
@@ -178,6 +183,7 @@ class Conversation:
                 images=m.get("images", []),
                 timestamp=m.get("timestamp", time.time()),
                 metadata=m.get("metadata", {}),
+                thinking=m.get("thinking", ""),
             ))
         return conv
 

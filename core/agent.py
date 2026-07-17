@@ -9,7 +9,7 @@ import logging
 from typing import List, Dict, Any, Optional, Generator, Callable
 from dataclasses import dataclass, field
 
-from .backend import Backend, ChatMessage
+from .backend import Backend, ChatMessage, StreamChunk
 from .conversation import Conversation
 from .tools.loader import ToolLoader
 
@@ -42,6 +42,7 @@ class AgentLoop:
         model: str = "",
         max_iterations: int = 10,
         temperature: float = 0.7,
+        think: bool = False,
     ):
         self.backend = backend
         self.conversation = conversation
@@ -49,6 +50,7 @@ class AgentLoop:
         self.model = model
         self.max_iterations = max_iterations
         self.temperature = temperature
+        self.think = think
         self.step_callbacks: List[Callable[[AgentStep], None]] = []
 
     def add_step_callback(self, callback: Callable[[AgentStep], None]) -> None:
@@ -125,10 +127,10 @@ class AgentLoop:
         user_input: str,
         images: List[str] = None,
         stream: bool = True,
-    ) -> Generator[str, None, None]:
+    ) -> Generator[StreamChunk, None, None]:
         """
         运行智能体循环
-        如果 stream=True，逐字产生回复内容
+        返回 StreamChunk 生成器，区分 thinking 和 content
         如果检测到工具调用，自动执行并继续对话
         """
         # 添加用户消息
@@ -144,22 +146,36 @@ class AgentLoop:
 
             # 调用模型: 统一使用流式或非流式, 不在流式输出后重新请求
             if stream:
-                # 流式输出: 逐字产生回复, 仅从文本中提取工具调用, 不重新请求
+                # 流式输出: 逐字产生回复
                 full_response = ""
+                full_thinking = ""
+                in_thinking = False
+
                 for chunk in self.backend.chat(
                     model=self.model,
                     messages=messages,
                     tools=tools if tools else None,
                     stream=True,
                     temperature=self.temperature,
+                    think=self.think,
                 ):
-                    full_response += chunk
-                    yield chunk
+                    # 收集思考内容
+                    if chunk.thinking:
+                        full_thinking += chunk.thinking
+                        if not in_thinking:
+                            in_thinking = True
+                        yield StreamChunk(thinking=chunk.thinking)
+                    # 收集正式回复
+                    if chunk.content:
+                        full_response += chunk.content
+                        if in_thinking:
+                            in_thinking = False
+                        yield StreamChunk(content=chunk.content)
 
                 # 从流式输出文本中提取工具调用 (不再发起非流式重请求)
                 tool_calls = self._extract_tool_calls(full_response)
 
-                self.conversation.add_message("assistant", full_response)
+                self.conversation.add_message("assistant", full_response, thinking=full_thinking)
 
                 if not tool_calls:
                     # 没有工具调用，对话结束
@@ -167,7 +183,8 @@ class AgentLoop:
 
                 # 执行工具调用
                 for tc in tool_calls:
-                    yield f"\n[工具调用] {tc['name']}: {json.dumps(tc['arguments'], ensure_ascii=False)}\n"
+                    tool_text = f"\n[工具调用] {tc['name']}: {json.dumps(tc['arguments'], ensure_ascii=False)}\n"
+                    yield StreamChunk(content=tool_text)
                     self._notify_step(AgentStep(
                         step_type="tool_call",
                         tool_name=tc["name"],
@@ -178,14 +195,14 @@ class AgentLoop:
 
                     if result["success"]:
                         result_text = json.dumps(result["output"], ensure_ascii=False) if not isinstance(result["output"], str) else result["output"]
-                        yield f"[工具结果] {result_text}\n"
+                        yield StreamChunk(content=f"[工具结果] {result_text}\n")
                         self._notify_step(AgentStep(
                             step_type="tool_result",
                             tool_name=tc["name"],
                             tool_result=result["output"],
                         ))
                     else:
-                        yield f"[工具错误] {result['error']}\n"
+                        yield StreamChunk(content=f"[工具错误] {result['error']}\n")
                         self._notify_step(AgentStep(
                             step_type="tool_result",
                             tool_name=tc["name"],
@@ -206,22 +223,28 @@ class AgentLoop:
                     messages=messages,
                     tools=tools if tools else None,
                     temperature=self.temperature,
+                    think=self.think,
                 )
 
                 if "error" in response:
                     error_msg = f"[错误] {response['error']}"
                     self.conversation.add_message("assistant", error_msg)
-                    yield error_msg
+                    yield StreamChunk(content=error_msg)
                     break
 
                 msg = response.get("message", {})
                 content = msg.get("content", "")
+                thinking_content = msg.get("thinking", "")
                 native_tool_calls = msg.get("tool_calls", [])
 
-                self.conversation.add_message("assistant", content)
+                self.conversation.add_message("assistant", content, thinking=thinking_content)
+
+                # 输出思考内容
+                if thinking_content:
+                    yield StreamChunk(thinking=thinking_content)
 
                 if not native_tool_calls and not self._has_tool_calls(content):
-                    yield content
+                    yield StreamChunk(content=content)
                     break
 
                 # 提取工具调用
@@ -236,10 +259,10 @@ class AgentLoop:
                     tool_calls = self._extract_tool_calls(content)
 
                 for tc in tool_calls:
-                    yield f"\n[工具调用] {tc['name']}\n"
+                    yield StreamChunk(content=f"\n[工具调用] {tc['name']}\n")
                     result = self.tool_loader.execute(tc["name"], tc["arguments"])
                     result_text = json.dumps(result, ensure_ascii=False)
-                    yield f"[工具结果] {result_text}\n"
+                    yield StreamChunk(content=f"[工具结果] {result_text}\n")
 
                     self.conversation.add_message(
                         "tool",
@@ -248,4 +271,4 @@ class AgentLoop:
                     )
 
         if iteration >= self.max_iterations:
-            yield "\n[系统] 已达到最大迭代次数，对话终止。\n"
+            yield StreamChunk(content="\n[系统] 已达到最大迭代次数，对话终止。\n")
