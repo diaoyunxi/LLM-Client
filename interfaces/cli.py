@@ -56,7 +56,7 @@ def select_model(backend) -> Optional[str]:
 
 def run_cli(backend: str = None, host: str = None, port: int = None,
             model: str = None, tools_dir: str = None, system: str = None,
-            image: str = None):
+            image: str = None, think: bool = False):
     """
     启动 CLI 界面
 
@@ -98,7 +98,7 @@ def run_cli(backend: str = None, host: str = None, port: int = None,
             tools_dir=tools_dir or "tools",
             system=system or "",
             image=image or "",
-            think=False,  # 由 main.py 传入时单独处理
+            think=think,
         )
 
     print_banner()

@@ -7,6 +7,7 @@ import base64
 import json
 import os
 import logging
+import uuid
 import requests
 from abc import ABC, abstractmethod
 from typing import Generator, List, Dict, Any, Optional, Union
@@ -177,6 +178,30 @@ class OllamaBackend(Backend):
             logger.warning("Ollama 获取模型列表失败: %s", e)
         return models
 
+
+    def _detect_image_mime_type(self, img_base64: str) -> str:
+        """从 base64 编码的图片数据中检测 MIME 类型"""
+        try:
+            header_bytes = base64.b64decode(img_base64[:8])
+            # PNG: 89 50 4E 47
+            if header_bytes.startswith(b'\x89PNG'):
+                return "image/png"
+            # GIF: 47 49 46 38
+            elif header_bytes.startswith(b'GIF8'):
+                return "image/gif"
+            # WebP: 52 49 46 46 ... 57 45 42 50
+            elif header_bytes.startswith(b'RIFF') and len(header_bytes) >= 8:
+                full_header = base64.b64decode(img_base64[:24])
+                if full_header[8:12] == b'WEBP':
+                    return "image/webp"
+            # JPEG: FF D8 FF
+            elif header_bytes.startswith(b'\xff\xd8\xff'):
+                return "image/jpeg"
+            # 默认返回 jpeg
+            return "image/jpeg"
+        except Exception:
+            return "image/jpeg"
+
     def _convert_messages(self, messages: List[ChatMessage]) -> List[Dict[str, Any]]:
         """将内部消息格式转为 ollama 格式"""
         result = []
@@ -255,6 +280,222 @@ class OllamaBackend(Backend):
             return {"error": GENERIC_ERROR_MSG, "message": {"content": f"[错误] {GENERIC_ERROR_MSG}"}}
 
 
+class OpenAIBackend(Backend):
+    """
+    OpenAI API 兼容后端
+    支持任何遵循 OpenAI 协议的远程 API 服务（如 OpenAI、vLLM、LocalAI 等）
+    """
+
+    def __init__(self, base_url: str = "https://api.openai.com/v1", api_key: str = "", default_model: str = ""):
+        # 不调用父类 __init__，因为 URL 格式不同
+        self.base_url = base_url.rstrip("/")
+        self.api_key = api_key
+        self.default_model = default_model
+        self._headers = {
+            "Content-Type": "application/json",
+        }
+        if api_key:
+            self._headers["Authorization"] = f"Bearer {api_key}"
+
+    def list_models(self) -> List[ModelInfo]:
+        """获取可用模型列表"""
+        models = []
+        try:
+            def _fetch_models():
+                return requests.get(f"{self.base_url}/models", headers=self._headers, timeout=10)
+            resp = self._request_with_retry(_fetch_models)
+            if resp.status_code == 200:
+                data = resp.json()
+                for m in data.get("data", []):
+                    info = ModelInfo(name=m.get("id", "unknown"))
+                    # OpenAI 协议通常不直接提供视觉/工具支持信息，这里做简单判断
+                    name_lower = info.name.lower()
+                    vision_keywords = ["gpt-4-vision", "gpt-4o", "llava", "vision", "multimodal"]
+                    info.supports_vision = any(k in name_lower for k in vision_keywords)
+                    # 大多数现代模型都支持工具调用
+                    info.supports_tools = not any(k in name_lower for k in ["embedding", "tts", "whisper"])
+                    models.append(info)
+        except Exception as e:
+            logger.warning("OpenAI API 获取模型列表失败：%s", e)
+            # 如果无法获取，返回默认模型（如果有）
+            if self.default_model:
+                models.append(ModelInfo(name=self.default_model, supports_vision=True, supports_tools=True))
+        return models
+
+
+    def _detect_image_mime_type(self, img_base64: str) -> str:
+        """从 base64 编码的图片数据中检测 MIME 类型"""
+        try:
+            header_bytes = base64.b64decode(img_base64[:8])
+            # PNG: 89 50 4E 47
+            if header_bytes.startswith(b'\x89PNG'):
+                return "image/png"
+            # GIF: 47 49 46 38
+            elif header_bytes.startswith(b'GIF8'):
+                return "image/gif"
+            # WebP: 52 49 46 46 ... 57 45 42 50
+            elif header_bytes.startswith(b'RIFF') and len(header_bytes) >= 8:
+                full_header = base64.b64decode(img_base64[:24])
+                if full_header[8:12] == b'WEBP':
+                    return "image/webp"
+            # JPEG: FF D8 FF
+            elif header_bytes.startswith(b'\xff\xd8\xff'):
+                return "image/jpeg"
+            # 默认返回 jpeg
+            return "image/jpeg"
+        except Exception:
+            return "image/jpeg"
+
+    def _convert_messages(self, messages: List[ChatMessage]) -> List[Dict[str, Any]]:
+        """将内部消息格式转为 OpenAI 格式"""
+        result = []
+        for msg in messages:
+            # OpenAI 格式处理多模态内容
+            content = msg.content
+            if msg.images:
+                # 构建多模态内容数组
+                content_list = []
+                if msg.content:
+                    content_list.append({"type": "text", "text": msg.content})
+                for img_base64 in msg.images:
+                    # 检测实际图片 MIME 类型
+                    mime_type = self._detect_image_mime_type(img_base64)
+                    content_list.append({
+                        "type": "image_url",
+                        "image_url": {"url": f"data:{mime_type};base64,{img_base64}"}
+                    })
+                content = content_list
+            
+            item = {"role": msg.role, "content": content}
+            
+            # 处理 tool_calls (assistant 消息)
+            if msg.tool_calls:
+                openai_tool_calls = []
+                for tc in msg.tool_calls:
+                    openai_tool_calls.append({
+                        "id": tc.get("id", f"call_{uuid.uuid4().hex[:8]}"),
+                        "type": "function",
+                        "function": {
+                            "name": tc.get("function", {}).get("name", ""),
+                            "arguments": json.dumps(tc.get("function", {}).get("arguments", {}))
+                        }
+                    })
+                item["tool_calls"] = openai_tool_calls
+            
+            # 处理 tool_call_id (tool 消息)
+            if msg.tool_call_id:
+                item["tool_call_id"] = msg.tool_call_id
+            
+            result.append(item)
+        return result
+
+    def chat(
+        self,
+        model: str,
+        messages: List[ChatMessage],
+        tools: Optional[List[Dict[str, Any]]] = None,
+        stream: bool = True,
+        temperature: float = 0.7,
+        think: bool = False,
+        **kwargs
+    ) -> Generator[StreamChunk, None, None]:
+        openai_messages = self._convert_messages(messages)
+        payload = {
+            "model": model,
+            "messages": openai_messages,
+            "temperature": temperature,
+            "stream": True,
+        }
+        
+        # 添加工具定义（OpenAI 格式）
+        if tools:
+            payload["tools"] = tools
+        
+        # 系统提示词已在 messages 中处理
+        
+        try:
+            def _make_request():
+                return requests.post(
+                    f"{self.base_url}/chat/completions",
+                    headers=self._headers,
+                    json=payload,
+                    stream=True,
+                    timeout=(10, 60),
+                )
+            resp = self._request_with_retry(_make_request)
+            resp.raise_for_status()
+            
+            for line in resp.iter_lines():
+                if line:
+                    line = line.decode("utf-8")
+                    if line.startswith("data: "):
+                        data = line[6:]
+                        if data == "[DONE]":
+                            break
+                        try:
+                            chunk = json.loads(data)
+                            delta = chunk.get("choices", [{}])[0].get("delta", {})
+                            
+                            # 处理思考过程（某些模型如 DeepSeek-R1 通过 reasoning_content 返回）
+                            thinking_text = delta.get("reasoning_content", "") or ""
+                            content_text = delta.get("content", "") or ""
+                            
+                            # 处理工具调用
+                            if "tool_calls" in delta and delta["tool_calls"]:
+                                # 工具调用通常在 content 为空时出现，这里不做特殊流式处理
+                                pass
+                            
+                            if thinking_text or content_text:
+                                yield StreamChunk(thinking=thinking_text, content=content_text)
+                        except json.JSONDecodeError:
+                            pass
+        except Exception as e:
+            logger.warning("OpenAI API 对话失败：%s", e)
+            yield StreamChunk(content=f"\n[错误] {GENERIC_ERROR_MSG}\n")
+
+    def chat_complete(
+        self,
+        model: str,
+        messages: List[ChatMessage],
+        tools: Optional[List[Dict[str, Any]]] = None,
+        temperature: float = 0.7,
+        think: bool = False,
+        **kwargs
+    ) -> Dict[str, Any]:
+        openai_messages = self._convert_messages(messages)
+        payload = {
+            "model": model,
+            "messages": openai_messages,
+            "temperature": temperature,
+            "stream": False,
+        }
+        
+        if tools:
+            payload["tools"] = tools
+        
+        try:
+            def _make_request():
+                return requests.post(
+                    f"{self.base_url}/chat/completions",
+                    headers=self._headers,
+                    json=payload,
+                    timeout=(10, 60),
+                )
+            resp = self._request_with_retry(_make_request)
+            resp.raise_for_status()
+            result = resp.json()
+            # 规范化响应格式以匹配 AgentLoop.run 的期望
+            # OpenAI 返回：{"choices": [{"message": {...}}]}
+            # AgentLoop 期望：{"message": {...}}
+            if "choices" in result and len(result["choices"]) > 0:
+                msg = result["choices"][0].get("message", {})
+                return {"message": msg}
+            return result
+        except Exception as e:
+            logger.warning("OpenAI API 请求失败：%s", e)
+            return {"error": GENERIC_ERROR_MSG, "message": {"content": f"[错误] {GENERIC_ERROR_MSG}"}}
+
+
 class LlamaCppBackend(Backend):
     """
     llama.cpp 后端（直接 HTTP 连接）
@@ -284,6 +525,30 @@ class LlamaCppBackend(Backend):
             # 添加一个占位模型
             models.append(ModelInfo(name="llama.cpp-model", supports_vision=False, supports_tools=False))
         return models
+
+
+    def _detect_image_mime_type(self, img_base64: str) -> str:
+        """从 base64 编码的图片数据中检测 MIME 类型"""
+        try:
+            header_bytes = base64.b64decode(img_base64[:8])
+            # PNG: 89 50 4E 47
+            if header_bytes.startswith(b'\x89PNG'):
+                return "image/png"
+            # GIF: 47 49 46 38
+            elif header_bytes.startswith(b'GIF8'):
+                return "image/gif"
+            # WebP: 52 49 46 46 ... 57 45 42 50
+            elif header_bytes.startswith(b'RIFF') and len(header_bytes) >= 8:
+                full_header = base64.b64decode(img_base64[:24])
+                if full_header[8:12] == b'WEBP':
+                    return "image/webp"
+            # JPEG: FF D8 FF
+            elif header_bytes.startswith(b'\xff\xd8\xff'):
+                return "image/jpeg"
+            # 默认返回 jpeg
+            return "image/jpeg"
+        except Exception:
+            return "image/jpeg"
 
     def _convert_messages(self, messages: List[ChatMessage]) -> List[Dict[str, Any]]:
         """转为 llama.cpp 的 chat completion 格式"""

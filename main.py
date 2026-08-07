@@ -114,6 +114,7 @@ def main():
             tools_dir=args.tools_dir,
             system=args.system,
             image=args.image,
+            think=args.think,
         )
 
     elif args.mode == "tui":
