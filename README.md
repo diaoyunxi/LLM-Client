@@ -1,6 +1,6 @@
 # LLM 客户端
 
-一个支持 **Ollama** 和 **llama.cpp** 的通用 LLM 客户端，具备多模态支持、外置自定义工具、智能体循环和多轮对话能力。
+一个支持 **Ollama**、**llama.cpp** 和 **OpenAI API 兼容协议**的通用 LLM 客户端，具备多模态支持、外置自定义工具、智能体循环和多轮对话能力。
 
 提供三种界面模式：**CLI（纯终端）**、**TUI（终端界面）**、**GUI（图形界面）**。
 
@@ -8,8 +8,8 @@
 
 ## 功能特性
 
-- **双后端支持**：同时兼容 Ollama（本地/远程）和 llama.cpp HTTP Server
-- **多模态**：支持图片上传，供视觉模型（如 LLaVA）分析
+- **三后端支持**：同时兼容 Ollama（本地/远程）、llama.cpp HTTP Server 和 OpenAI API 兼容服务（如 OpenAI、vLLM、LocalAI 等）
+- **多模态**：支持图片上传，供视觉模型（如 LLaVA、GPT-4V）分析
 - **外置工具系统**：工具定义外置在独立 Python 文件中，通过文件头部注释声明，热加载无需重启
 - **智能体循环**：自动检测模型输出的工具调用，执行后自动将结果带回对话，支持多轮工具调用
 - **三种界面**：
@@ -110,6 +110,10 @@ python main.py --mode gui --backend ollama
 
 # 连接远程 llama.cpp
 python main.py --mode gui --backend llamacpp --host 192.168.1.100 --port 8080
+
+# 使用 OpenAI API 兼容服务（只需输入 {url}/v1，自动补全 /chat/completions）
+python main.py --backend openai --base-url https://api.openai.com/v1 --api-key sk-xxx --model gpt-4o
+python main.py --backend openai --base-url http://localhost:8000/v1 --api-key your-key --model qwen2.5
 
 # 带图片的多模态对话（CLI）
 python main.py --mode cli --backend ollama --model llava --image ./photo.png
@@ -232,6 +236,29 @@ def run(ip: str):
 - 默认地址：`http://localhost:8080`
 - 工具调用通过 prompt 注入实现（兼容性取决于模型能力）
 - 多模态支持取决于编译选项和模型
+
+### OpenAI API 兼容后端
+
+- **使用方法**：只需输入 `{url}/v1`，程序会自动补全 `/chat/completions` 路径
+- **API Key**：通过 `--api-key` 参数传递，支持 Bearer Token 认证
+- **支持服务**：OpenAI 官方 API、vLLM、LocalAI、FastChat 等任何遵循 OpenAI 协议的服务
+- **功能支持**：
+  - ✅ 流式输出（SSE）
+  - ✅ 工具调用（Tools/Function Calling）
+  - ✅ 多模态（图片上传）
+  - ✅ 系统提示词
+  - ✅ 思考过程显示（通过 `reasoning_content` 字段，如 DeepSeek-R1）
+- **示例**：
+  ```bash
+  # OpenAI 官方
+  python main.py --backend openai --base-url https://api.openai.com/v1 --api-key sk-xxx --model gpt-4o
+  
+  # 本地 vLLM
+  python main.py --backend openai --base-url http://localhost:8000/v1 --model qwen2.5
+  
+  # 支持思考过程的模型
+  python main.py --backend openai --base-url http://localhost:8000/v1 --model deepseek-r1 --think
+  ```
 
 ---
 

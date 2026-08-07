@@ -12,7 +12,7 @@ from typing import Optional
 # 将上级目录加入路径
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core.backend import OllamaBackend, LlamaCppBackend, StreamChunk
+from core.backend import OllamaBackend, LlamaCppBackend, OpenAIBackend, StreamChunk
 from core.conversation import Conversation
 from core.agent import AgentLoop
 from core.tools.loader import ToolLoader
@@ -21,7 +21,7 @@ from core.tools.loader import ToolLoader
 def print_banner():
     print("=" * 60)
     print("   LLM 客户端 - 命令行界面")
-    print("   支持 Ollama / llama.cpp | 多模态 | 工具调用")
+    print("   支持 Ollama / llama.cpp / OpenAI API | 多模态 | 工具调用")
     print("=" * 60)
     print()
 
@@ -55,31 +55,36 @@ def select_model(backend) -> Optional[str]:
 
 
 def run_cli(backend: str = None, host: str = None, port: int = None,
+            base_url: str = None, api_key: str = None,
             model: str = None, tools_dir: str = None, system: str = None,
             image: str = None):
     """
     启动 CLI 界面
 
     支持两种调用方式:
-    1. 直接传递关键字参数 (由 main.py 调用, 不重写 sys.argv)
+    1. 直接传递关键字参数 (由 main.py 调用，不重写 sys.argv)
     2. 不传参数时从命令行解析 (兼容独立运行 python -m interfaces.cli)
 
     Args:
-        backend: 后端类型 (ollama / llamacpp)
+        backend: 后端类型 (ollama / llamacpp / openai)
         host: 后端主机地址
         port: 后端端口
+        base_url: OpenAI 兼容 API 的完整 URL（仅 openai 后端使用）
+        api_key: API Key（仅 openai 后端使用）
         model: 模型名称
         tools_dir: 工具目录
         system: 系统提示词
         image: 图片路径
     """
-    # 若未通过参数传入, 则从命令行解析 (兼容直接运行)
+    # 若未通过参数传入，则从命令行解析 (兼容直接运行)
     if backend is None:
         parser = argparse.ArgumentParser(description="LLM 客户端 CLI")
-        parser.add_argument("--backend", choices=["ollama", "llamacpp"], default="ollama",
+        parser.add_argument("--backend", choices=["ollama", "llamacpp", "openai"], default="ollama",
                             help="后端类型")
         parser.add_argument("--host", default="localhost", help="后端主机地址")
         parser.add_argument("--port", type=int, default=None, help="后端端口")
+        parser.add_argument("--base-url", default="", help="OpenAI 兼容 API 的完整 URL（仅 openai 后端使用）")
+        parser.add_argument("--api-key", default="", help="API Key（仅 openai 后端需要）")
         parser.add_argument("--model", default="", help="模型名称")
         parser.add_argument("--tools-dir", default="tools", help="工具目录")
         parser.add_argument("--system", default="", help="系统提示词")
@@ -94,6 +99,8 @@ def run_cli(backend: str = None, host: str = None, port: int = None,
             backend=backend,
             host=host or "localhost",
             port=port,
+            base_url=base_url or "",
+            api_key=api_key or "",
             model=model or "",
             tools_dir=tools_dir or "tools",
             system=system or "",
@@ -103,16 +110,26 @@ def run_cli(backend: str = None, host: str = None, port: int = None,
 
     print_banner()
 
-    # 确定端口
-    port = args.port or (11434 if args.backend == "ollama" else 8080)
-
     # 初始化后端
     if args.backend == "ollama":
-        backend = OllamaBackend(host=args.host, port=port)
+        port = args.port or 11434
+        backend_instance = OllamaBackend(host=args.host, port=port)
         print(f"[后端] Ollama @ {args.host}:{port}")
-    else:
-        backend = LlamaCppBackend(host=args.host, port=port)
+    elif args.backend == "llamacpp":
+        port = args.port or 8080
+        backend_instance = LlamaCppBackend(host=args.host, port=port)
         print(f"[后端] llama.cpp @ {args.host}:{port}")
+    elif args.backend == "openai":
+        if not args.base_url:
+            print("[错误] OpenAI 后端需要指定 --base-url")
+            return
+        if not args.api_key:
+            print("[警告] 未提供 API Key，某些服务可能无法访问")
+        backend_instance = OpenAIBackend(base_url=args.base_url, api_key=args.api_key, default_model=args.model)
+        print(f"[后端] OpenAI API @ {args.base_url}")
+    else:
+        print(f"[错误] 未知后端类型：{args.backend}")
+        return
 
     # 加载工具
     tool_loader = ToolLoader()
@@ -122,12 +139,12 @@ def run_cli(backend: str = None, host: str = None, port: int = None,
         loaded = tool_loader.load_all()
         print(f"[工具] 已加载 {loaded} 个工具")
     else:
-        print(f"[工具] 目录不存在: {tools_dir}")
+        print(f"[工具] 目录不存在：{tools_dir}")
 
     # 选择模型
     model = args.model
     if not model:
-        model = select_model(backend)
+        model = select_model(backend_instance)
         if not model:
             print("未选择模型，退出。")
             return
@@ -141,7 +158,7 @@ def run_cli(backend: str = None, host: str = None, port: int = None,
 
     # 智能体循环
     agent = AgentLoop(
-        backend=backend,
+        backend=backend_instance,
         conversation=conversation,
         tool_loader=tool_loader,
         model=model,
@@ -155,10 +172,10 @@ def run_cli(backend: str = None, host: str = None, port: int = None,
     images = []
     if args.image:
         if os.path.exists(args.image):
-            images.append(backend.encode_image(args.image))
-            print(f"[图片] 已加载: {args.image}\n")
+            images.append(backend_instance.encode_image(args.image))
+            print(f"[图片] 已加载：{args.image}\n")
         else:
-            print(f"[警告] 图片不存在: {args.image}")
+            print(f"[警告] 图片不存在：{args.image}")
 
     while True:
         try:
@@ -172,7 +189,7 @@ def run_cli(backend: str = None, host: str = None, port: int = None,
 
         # 处理命令
         if user_input.startswith("/"):
-            # 添加空列表检查, 防止用户仅输入 "/" 时 split() 返回空列表导致 IndexError
+            # 添加空列表检查，防止用户仅输入 "/" 时 split() 返回空列表导致 IndexError
             parts = user_input[1:].lower().split()
             if not parts:
                 print("[系统] 请输入有效命令，输入 /help 查看帮助。")
@@ -190,32 +207,32 @@ def run_cli(backend: str = None, host: str = None, port: int = None,
                 parts = user_input.split(maxsplit=1)
                 path = parts[1] if len(parts) > 1 else f"conversation_{conversation.id}.json"
                 conversation.save(path)
-                print(f"[系统] 对话已保存到: {path}")
+                print(f"[系统] 对话已保存到：{path}")
             elif cmd == "load":
                 parts = user_input.split(maxsplit=1)
                 path = parts[1] if len(parts) > 1 else None
                 if path and os.path.exists(path):
                     conversation = Conversation.load(path)
                     agent.conversation = conversation
-                    print(f"[系统] 对话已加载: {path}")
+                    print(f"[系统] 对话已加载：{path}")
                 else:
                     print("[系统] 请指定有效的文件路径。")
             elif cmd == "image":
                 parts = user_input.split(maxsplit=1)
                 if len(parts) > 1 and os.path.exists(parts[1]):
-                    images.append(backend.encode_image(parts[1]))
-                    print(f"[图片] 已加载: {parts[1]}")
+                    images.append(backend_instance.encode_image(parts[1]))
+                    print(f"[图片] 已加载：{parts[1]}")
                 else:
                     print("[系统] 请指定有效的图片路径。")
             elif cmd == "models":
-                for m in backend.list_models():
+                for m in backend_instance.list_models():
                     print(f"  - {m.name}")
             elif cmd == "tools":
                 for name in tool_loader.tools:
                     t = tool_loader.tools[name]
                     print(f"  - {name}: {t.description}")
             else:
-                print(f"未知命令: {cmd}")
+                print(f"未知命令：{cmd}")
             continue
 
         # 发送消息

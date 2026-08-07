@@ -7,6 +7,7 @@ import base64
 import json
 import os
 import logging
+import uuid
 import requests
 from abc import ABC, abstractmethod
 from typing import Generator, List, Dict, Any, Optional, Union
@@ -252,6 +253,183 @@ class OllamaBackend(Backend):
         except Exception as e:
             # 异常详情记录到日志, 向用户返回通用错误消息
             logger.warning("Ollama 请求失败: %s", e)
+            return {"error": GENERIC_ERROR_MSG, "message": {"content": f"[错误] {GENERIC_ERROR_MSG}"}}
+
+
+class OpenAIBackend(Backend):
+    """
+    OpenAI API 兼容后端
+    支持任何遵循 OpenAI 协议的远程 API 服务（如 OpenAI、vLLM、LocalAI 等）
+    """
+
+    def __init__(self, base_url: str = "https://api.openai.com/v1", api_key: str = "", default_model: str = ""):
+        # 不调用父类 __init__，因为 URL 格式不同
+        self.base_url = base_url.rstrip("/")
+        self.api_key = api_key
+        self.default_model = default_model
+        self._headers = {
+            "Content-Type": "application/json",
+        }
+        if api_key:
+            self._headers["Authorization"] = f"Bearer {api_key}"
+
+    def list_models(self) -> List[ModelInfo]:
+        """获取可用模型列表"""
+        models = []
+        try:
+            resp = requests.get(f"{self.base_url}/models", headers=self._headers, timeout=10)
+            if resp.status_code == 200:
+                data = resp.json()
+                for m in data.get("data", []):
+                    info = ModelInfo(name=m.get("id", "unknown"))
+                    # OpenAI 协议通常不直接提供视觉/工具支持信息，这里做简单判断
+                    name_lower = info.name.lower()
+                    vision_keywords = ["gpt-4-vision", "gpt-4o", "llava", "vision", "multimodal"]
+                    info.supports_vision = any(k in name_lower for k in vision_keywords)
+                    # 大多数现代模型都支持工具调用
+                    info.supports_tools = not any(k in name_lower for k in ["embedding", "tts", "whisper"])
+                    models.append(info)
+        except Exception as e:
+            logger.warning("OpenAI API 获取模型列表失败：%s", e)
+            # 如果无法获取，返回默认模型（如果有）
+            if self.default_model:
+                models.append(ModelInfo(name=self.default_model, supports_vision=True, supports_tools=True))
+        return models
+
+    def _convert_messages(self, messages: List[ChatMessage]) -> List[Dict[str, Any]]:
+        """将内部消息格式转为 OpenAI 格式"""
+        result = []
+        for msg in messages:
+            # OpenAI 格式处理多模态内容
+            content = msg.content
+            if msg.images:
+                # 构建多模态内容数组
+                content_list = []
+                if msg.content:
+                    content_list.append({"type": "text", "text": msg.content})
+                for img_base64 in msg.images:
+                    content_list.append({
+                        "type": "image_url",
+                        "image_url": {"url": f"data:image/jpeg;base64,{img_base64}"}
+                    })
+                content = content_list
+            
+            item = {"role": msg.role, "content": content}
+            
+            # 处理 tool_calls (assistant 消息)
+            if msg.tool_calls:
+                openai_tool_calls = []
+                for tc in msg.tool_calls:
+                    openai_tool_calls.append({
+                        "id": tc.get("id", f"call_{uuid.uuid4().hex[:8]}"),
+                        "type": "function",
+                        "function": {
+                            "name": tc.get("function", {}).get("name", ""),
+                            "arguments": json.dumps(tc.get("function", {}).get("arguments", {}))
+                        }
+                    })
+                item["tool_calls"] = openai_tool_calls
+            
+            # 处理 tool_call_id (tool 消息)
+            if msg.tool_call_id:
+                item["tool_call_id"] = msg.tool_call_id
+            
+            result.append(item)
+        return result
+
+    def chat(
+        self,
+        model: str,
+        messages: List[ChatMessage],
+        tools: Optional[List[Dict[str, Any]]] = None,
+        stream: bool = True,
+        temperature: float = 0.7,
+        think: bool = False,
+        **kwargs
+    ) -> Generator[StreamChunk, None, None]:
+        openai_messages = self._convert_messages(messages)
+        payload = {
+            "model": model,
+            "messages": openai_messages,
+            "temperature": temperature,
+            "stream": True,
+        }
+        
+        # 添加工具定义（OpenAI 格式）
+        if tools:
+            payload["tools"] = tools
+        
+        # 系统提示词已在 messages 中处理
+        
+        try:
+            resp = requests.post(
+                f"{self.base_url}/chat/completions",
+                headers=self._headers,
+                json=payload,
+                stream=True,
+                timeout=(10, 60),
+            )
+            resp.raise_for_status()
+            
+            for line in resp.iter_lines():
+                if line:
+                    line = line.decode("utf-8")
+                    if line.startswith("data: "):
+                        data = line[6:]
+                        if data == "[DONE]":
+                            break
+                        try:
+                            chunk = json.loads(data)
+                            delta = chunk.get("choices", [{}])[0].get("delta", {})
+                            
+                            # 处理思考过程（某些模型如 DeepSeek-R1 通过 reasoning_content 返回）
+                            thinking_text = delta.get("reasoning_content", "") or ""
+                            content_text = delta.get("content", "") or ""
+                            
+                            # 处理工具调用
+                            if "tool_calls" in delta and delta["tool_calls"]:
+                                # 工具调用通常在 content 为空时出现，这里不做特殊流式处理
+                                pass
+                            
+                            if thinking_text or content_text:
+                                yield StreamChunk(thinking=thinking_text, content=content_text)
+                        except json.JSONDecodeError:
+                            pass
+        except Exception as e:
+            logger.warning("OpenAI API 对话失败：%s", e)
+            yield StreamChunk(content=f"\n[错误] {GENERIC_ERROR_MSG}\n")
+
+    def chat_complete(
+        self,
+        model: str,
+        messages: List[ChatMessage],
+        tools: Optional[List[Dict[str, Any]]] = None,
+        temperature: float = 0.7,
+        think: bool = False,
+        **kwargs
+    ) -> Dict[str, Any]:
+        openai_messages = self._convert_messages(messages)
+        payload = {
+            "model": model,
+            "messages": openai_messages,
+            "temperature": temperature,
+            "stream": False,
+        }
+        
+        if tools:
+            payload["tools"] = tools
+        
+        try:
+            resp = requests.post(
+                f"{self.base_url}/chat/completions",
+                headers=self._headers,
+                json=payload,
+                timeout=(10, 60),
+            )
+            resp.raise_for_status()
+            return resp.json()
+        except Exception as e:
+            logger.warning("OpenAI API 请求失败：%s", e)
             return {"error": GENERIC_ERROR_MSG, "message": {"content": f"[错误] {GENERIC_ERROR_MSG}"}}
 
 
