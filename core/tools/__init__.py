@@ -6,4 +6,4 @@
 from .loader import ToolLoader
 from .parser import ToolDefinition, parse_tool_from_file
 
-__all__ = ["ToolLoader", "ToolDefinition", "parse_tool_from_file"]
+__all__ = ["ToolDefinition", "ToolLoader", "parse_tool_from_file"]

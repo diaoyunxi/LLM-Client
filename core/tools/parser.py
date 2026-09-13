@@ -13,10 +13,10 @@ TOOL_PARAMETERS:
         description: 数学表达式，如 "1 + 2 * 3"
         required: true
 """
-import re
 import json
+import re
 from dataclasses import dataclass, field
-from typing import Dict, Any, Optional
+from typing import Any
 
 
 @dataclass
@@ -29,7 +29,7 @@ class ToolParameter:
     default: Any = None
     enum: list = field(default_factory=list)
 
-    def to_schema(self) -> Dict[str, Any]:
+    def to_schema(self) -> dict[str, Any]:
         schema = {
             "type": self.param_type,
             "description": self.description,
@@ -46,11 +46,11 @@ class ToolDefinition:
     """工具定义"""
     name: str
     description: str
-    parameters: Dict[str, ToolParameter] = field(default_factory=dict)
+    parameters: dict[str, ToolParameter] = field(default_factory=dict)
     module_path: str = ""
     function_name: str = "run"  # 默认调用函数名
 
-    def to_ollama_format(self) -> Dict[str, Any]:
+    def to_ollama_format(self) -> dict[str, Any]:
         """转为 Ollama 工具格式"""
         properties = {}
         required = []
@@ -72,7 +72,7 @@ class ToolDefinition:
             },
         }
 
-    def validate_args(self, args: Dict[str, Any]) -> tuple[bool, str]:
+    def validate_args(self, args: dict[str, Any]) -> tuple[bool, str]:
         """验证参数"""
         for name, param in self.parameters.items():
             if param.required and name not in args:
@@ -95,7 +95,7 @@ class ToolDefinition:
         return True, ""
 
 
-def parse_tool_from_file(filepath: str) -> Optional[ToolDefinition]:
+def parse_tool_from_file(filepath: str) -> ToolDefinition | None:
     """
     从 Python 文件解析工具定义
     解析文件开头的多行注释中的 TOOL 元数据
