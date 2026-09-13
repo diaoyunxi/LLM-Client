@@ -5,15 +5,16 @@
 
 import base64
 import json
-import os
 import logging
+import os
 import uuid
-import requests
 from abc import ABC, abstractmethod
-from typing import Generator, List, Dict, Any, Optional, Union
+from collections.abc import Generator
 from dataclasses import dataclass, field
-import ollama
+from typing import Any
 
+import ollama
+import requests
 
 logger = logging.getLogger("backend")
 
@@ -33,9 +34,9 @@ class ChatMessage:
     """统一消息格式"""
     role: str  # system / user / assistant / tool
     content: str = ""
-    images: List[str] = field(default_factory=list)  # base64 编码的图片
-    tool_calls: List[Dict[str, Any]] = field(default_factory=list)
-    tool_call_id: Optional[str] = None
+    images: list[str] = field(default_factory=list)  # base64 编码的图片
+    tool_calls: list[dict[str, Any]] = field(default_factory=list)
+    tool_call_id: str | None = None
     thinking: str = ""   # 模型思考过程（仅 assistant 消息）
 
 
@@ -46,7 +47,7 @@ class ModelInfo:
     size: int = 0
     parameter_size: str = ""
     format: str = ""
-    families: List[str] = field(default_factory=list)
+    families: list[str] = field(default_factory=list)
     supports_vision: bool = False
     supports_tools: bool = False
 
@@ -93,22 +94,21 @@ class Backend(ABC):
                     time.sleep(delay)
                 else:
                     logger.warning("请求失败, 已达最大重试次数 %d: %s", self.MAX_RETRIES, e)
-            except Exception as e:
+            except Exception:
                 # 非网络异常, 不重试直接抛出
                 raise
         raise last_exc
 
     @abstractmethod
-    def list_models(self) -> List[ModelInfo]:
+    def list_models(self) -> list[ModelInfo]:
         """获取可用模型列表"""
-        pass
 
     @abstractmethod
     def chat(
         self,
         model: str,
-        messages: List[ChatMessage],
-        tools: Optional[List[Dict[str, Any]]] = None,
+        messages: list[ChatMessage],
+        tools: list[dict[str, Any]] | None = None,
         stream: bool = True,
         temperature: float = 0.7,
         think: bool = False,
@@ -118,21 +118,19 @@ class Backend(ABC):
         发起对话
         返回生成器，逐字输出 StreamChunk（区分 thinking 和 content）
         """
-        pass
 
     @abstractmethod
     def chat_complete(
         self,
         model: str,
-        messages: List[ChatMessage],
-        tools: Optional[List[Dict[str, Any]]] = None,
+        messages: list[ChatMessage],
+        tools: list[dict[str, Any]] | None = None,
         temperature: float = 0.7,
         **kwargs
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         发起对话，返回完整响应（用于工具调用解析）
         """
-        pass
 
     def encode_image(self, image_path: str) -> str:
         """
@@ -156,7 +154,7 @@ class OllamaBackend(Backend):
         super().__init__(host, port)
         self.client = ollama.Client(host=f"http://{host}:{port}")
 
-    def list_models(self) -> List[ModelInfo]:
+    def list_models(self) -> list[ModelInfo]:
         models = []
         try:
             response = self.client.list()
@@ -202,7 +200,7 @@ class OllamaBackend(Backend):
         except Exception:
             return "image/jpeg"
 
-    def _convert_messages(self, messages: List[ChatMessage]) -> List[Dict[str, Any]]:
+    def _convert_messages(self, messages: list[ChatMessage]) -> list[dict[str, Any]]:
         """将内部消息格式转为 ollama 格式"""
         result = []
         for msg in messages:
@@ -219,8 +217,8 @@ class OllamaBackend(Backend):
     def chat(
         self,
         model: str,
-        messages: List[ChatMessage],
-        tools: Optional[List[Dict[str, Any]]] = None,
+        messages: list[ChatMessage],
+        tools: list[dict[str, Any]] | None = None,
         stream: bool = True,
         temperature: float = 0.7,
         think: bool = False,
@@ -253,12 +251,12 @@ class OllamaBackend(Backend):
     def chat_complete(
         self,
         model: str,
-        messages: List[ChatMessage],
-        tools: Optional[List[Dict[str, Any]]] = None,
+        messages: list[ChatMessage],
+        tools: list[dict[str, Any]] | None = None,
         temperature: float = 0.7,
         think: bool = False,
         **kwargs
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         ollama_messages = self._convert_messages(messages)
         options = {"temperature": temperature}
         options.update(kwargs)
@@ -297,7 +295,7 @@ class OpenAIBackend(Backend):
         if api_key:
             self._headers["Authorization"] = f"Bearer {api_key}"
 
-    def list_models(self) -> List[ModelInfo]:
+    def list_models(self) -> list[ModelInfo]:
         """获取可用模型列表"""
         models = []
         try:
@@ -346,7 +344,7 @@ class OpenAIBackend(Backend):
         except Exception:
             return "image/jpeg"
 
-    def _convert_messages(self, messages: List[ChatMessage]) -> List[Dict[str, Any]]:
+    def _convert_messages(self, messages: list[ChatMessage]) -> list[dict[str, Any]]:
         """将内部消息格式转为 OpenAI 格式"""
         result = []
         for msg in messages:
@@ -392,8 +390,8 @@ class OpenAIBackend(Backend):
     def chat(
         self,
         model: str,
-        messages: List[ChatMessage],
-        tools: Optional[List[Dict[str, Any]]] = None,
+        messages: list[ChatMessage],
+        tools: list[dict[str, Any]] | None = None,
         stream: bool = True,
         temperature: float = 0.7,
         think: bool = False,
@@ -441,7 +439,7 @@ class OpenAIBackend(Backend):
                             content_text = delta.get("content", "") or ""
                             
                             # 处理工具调用
-                            if "tool_calls" in delta and delta["tool_calls"]:
+                            if delta.get("tool_calls"):
                                 # 工具调用通常在 content 为空时出现，这里不做特殊流式处理
                                 pass
                             
@@ -456,12 +454,12 @@ class OpenAIBackend(Backend):
     def chat_complete(
         self,
         model: str,
-        messages: List[ChatMessage],
-        tools: Optional[List[Dict[str, Any]]] = None,
+        messages: list[ChatMessage],
+        tools: list[dict[str, Any]] | None = None,
         temperature: float = 0.7,
         think: bool = False,
         **kwargs
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         openai_messages = self._convert_messages(messages)
         payload = {
             "model": model,
@@ -506,7 +504,7 @@ class LlamaCppBackend(Backend):
         super().__init__(host, port)
         self.base_url = f"http://{host}:{port}"
 
-    def list_models(self) -> List[ModelInfo]:
+    def list_models(self) -> list[ModelInfo]:
         """llama.cpp server 通常只运行一个模型"""
         models = []
         try:
@@ -550,7 +548,7 @@ class LlamaCppBackend(Backend):
         except Exception:
             return "image/jpeg"
 
-    def _convert_messages(self, messages: List[ChatMessage]) -> List[Dict[str, Any]]:
+    def _convert_messages(self, messages: list[ChatMessage]) -> list[dict[str, Any]]:
         """转为 llama.cpp 的 chat completion 格式"""
         result = []
         for msg in messages:
@@ -561,7 +559,7 @@ class LlamaCppBackend(Backend):
             result.append(item)
         return result
 
-    def _build_prompt(self, messages: List[ChatMessage]) -> str:
+    def _build_prompt(self, messages: list[ChatMessage]) -> str:
         """将消息列表拼接为纯文本 prompt（用于 /completion 接口）"""
         parts = []
         for msg in messages:
@@ -579,8 +577,8 @@ class LlamaCppBackend(Backend):
     def chat(
         self,
         model: str,
-        messages: List[ChatMessage],
-        tools: Optional[List[Dict[str, Any]]] = None,
+        messages: list[ChatMessage],
+        tools: list[dict[str, Any]] | None = None,
         stream: bool = True,
         temperature: float = 0.7,
         think: bool = False,
@@ -625,12 +623,12 @@ class LlamaCppBackend(Backend):
                                 yield StreamChunk(content=content)
                         except json.JSONDecodeError:
                             pass
-        except Exception as e:
+        except Exception:
             # 降级到 /completion 接口
             yield from self._fallback_completion(messages, temperature, **kwargs)
 
     def _fallback_completion(
-        self, messages: List[ChatMessage], temperature: float, **kwargs
+        self, messages: list[ChatMessage], temperature: float, **kwargs
     ) -> Generator[StreamChunk, None, None]:
         """使用 /completion 接口作为降级方案"""
         prompt = self._build_prompt(messages)
@@ -674,11 +672,11 @@ class LlamaCppBackend(Backend):
     def chat_complete(
         self,
         model: str,
-        messages: List[ChatMessage],
-        tools: Optional[List[Dict[str, Any]]] = None,
+        messages: list[ChatMessage],
+        tools: list[dict[str, Any]] | None = None,
         temperature: float = 0.7,
         **kwargs
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         chat_messages = self._convert_messages(messages)
         payload = {
             "messages": chat_messages,
@@ -705,7 +703,7 @@ class LlamaCppBackend(Backend):
             logger.warning("llama.cpp 请求失败: %s", e)
             return {"error": GENERIC_ERROR_MSG}
 
-    def _tools_to_prompt(self, tools: List[Dict[str, Any]]) -> str:
+    def _tools_to_prompt(self, tools: list[dict[str, Any]]) -> str:
         """将工具定义转为 prompt 文本（llama.cpp 原生不支持工具调用时的降级方案）"""
         lines = ["你可以使用以下工具:"]
         for tool in tools:
