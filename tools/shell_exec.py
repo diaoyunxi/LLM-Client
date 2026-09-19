@@ -206,7 +206,7 @@ def run(command: str, timeout: int = 30, working_dir: str = ".", max_output: int
             "output": "",
             "exit_code": -1,
         }
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001  需要捕获所有异常以保证稳定性
         logger.warning("shell_exec 执行失败: %s", e)
         return {
             "success": False,

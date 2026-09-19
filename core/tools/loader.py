@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger("loader")
 """
 工具加载器
 扫描目录、加载外置工具、执行工具调用
@@ -72,7 +74,7 @@ class ToolLoader:
             print(f"[ToolLoader] 已加载工具: {tool_def.name}")
             return True
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001  需要捕获所有异常以保证稳定性
             print(f"[ToolLoader] 加载工具失败 {filepath}: {e}")
             return False
 
@@ -121,7 +123,7 @@ class ToolLoader:
                 "error": None,
                 "output": result,
             }
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001  需要捕获所有异常以保证稳定性
             return {
                 "success": False,
                 "error": str(e),

@@ -395,7 +395,7 @@ class LLMClientTUI(App):
                 ai_msg.thinking = full_thinking
                 # 刷新显示
                 msg_widget.refresh()
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001  需要捕获所有异常以保证稳定性
             full_content += f"\n[错误] {e}"
             ai_msg.content = full_content
             msg_widget.refresh()
@@ -429,7 +429,7 @@ class LLMClientTUI(App):
                     self.image_attachments.append(encoded)
                     self.query_one("#image-status", Static).update(f"已加载: {os.path.basename(path)}")
                     self.notify(f"图片已加载: {path}", severity="information")
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001  需要捕获所有异常以保证稳定性
                     self.notify(f"图片加载失败: {e}", severity="error")
             else:
                 self.notify("文件不存在", severity="error")
@@ -437,7 +437,7 @@ class LLMClientTUI(App):
             try:
                 self.conversation.save(parts[1].strip())
                 self.notify("对话已保存", severity="information")
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001  需要捕获所有异常以保证稳定性
                 self.notify(f"保存失败: {e}", severity="error")
         elif cmd == "load" and len(parts) > 1:
             try:
@@ -450,7 +450,7 @@ class LLMClientTUI(App):
                 for msg in self.conversation.messages:
                     self.add_message_widget(msg)
                 self.notify("对话已加载", severity="information")
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001  需要捕获所有异常以保证稳定性
                 self.notify(f"加载失败: {e}", severity="error")
         else:
             self.notify(f"未知命令: {cmd}", severity="warning")

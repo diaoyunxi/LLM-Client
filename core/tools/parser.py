@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger("parser")
 """
 工具解析器
 从 Python 文件开头的注释中解析工具定义
@@ -103,7 +105,7 @@ def parse_tool_from_file(filepath: str) -> Optional[ToolDefinition]:
     try:
         with open(filepath, "r", encoding="utf-8") as f:
             content = f.read()
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001  需要捕获所有异常以保证稳定性
         print(f"[ToolParser] 读取文件失败 {filepath}: {e}")
         return None
 

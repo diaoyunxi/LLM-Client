@@ -93,7 +93,7 @@ class Backend(ABC):
                     time.sleep(delay)
                 else:
                     logger.warning("请求失败, 已达最大重试次数 %d: %s", self.MAX_RETRIES, e)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001  需要捕获所有异常以保证稳定性
                 # 非网络异常, 不重试直接抛出
                 raise
         raise last_exc
@@ -173,7 +173,7 @@ class OllamaBackend(Backend):
                 info.supports_vision = any(k in name_lower for k in vision_keywords)
                 info.supports_tools = True  # Ollama 支持工具调用
                 models.append(info)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001  需要捕获所有异常以保证稳定性
             # 异常详情记录到日志, 不直接暴露给用户
             logger.warning("Ollama 获取模型列表失败: %s", e)
         return models
@@ -199,7 +199,7 @@ class OllamaBackend(Backend):
                 return "image/jpeg"
             # 默认返回 jpeg
             return "image/jpeg"
-        except Exception:
+        except Exception:  # noqa: BLE001  需要捕获所有异常以保证稳定性
             return "image/jpeg"
 
     def _convert_messages(self, messages: List[ChatMessage]) -> List[Dict[str, Any]]:
@@ -245,7 +245,7 @@ class OllamaBackend(Backend):
                 content_text = msg.get("content", "") or ""
                 if thinking_text or content_text:
                     yield StreamChunk(thinking=thinking_text, content=content_text)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001  需要捕获所有异常以保证稳定性
             # 异常详情记录到日志, 向用户返回通用错误消息
             logger.warning("Ollama 对话失败: %s", e)
             yield StreamChunk(content=f"\n[错误] {GENERIC_ERROR_MSG}\n")
@@ -274,7 +274,7 @@ class OllamaBackend(Backend):
                 think=think,
             )
             return response
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001  需要捕获所有异常以保证稳定性
             # 异常详情记录到日志, 向用户返回通用错误消息
             logger.warning("Ollama 请求失败: %s", e)
             return {"error": GENERIC_ERROR_MSG, "message": {"content": f"[错误] {GENERIC_ERROR_MSG}"}}
@@ -315,7 +315,7 @@ class OpenAIBackend(Backend):
                     # 大多数现代模型都支持工具调用
                     info.supports_tools = not any(k in name_lower for k in ["embedding", "tts", "whisper"])
                     models.append(info)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001  需要捕获所有异常以保证稳定性
             logger.warning("OpenAI API 获取模型列表失败：%s", e)
             # 如果无法获取，返回默认模型（如果有）
             if self.default_model:
@@ -343,7 +343,7 @@ class OpenAIBackend(Backend):
                 return "image/jpeg"
             # 默认返回 jpeg
             return "image/jpeg"
-        except Exception:
+        except Exception:  # noqa: BLE001  需要捕获所有异常以保证稳定性
             return "image/jpeg"
 
     def _convert_messages(self, messages: List[ChatMessage]) -> List[Dict[str, Any]]:
@@ -449,7 +449,7 @@ class OpenAIBackend(Backend):
                                 yield StreamChunk(thinking=thinking_text, content=content_text)
                         except json.JSONDecodeError:
                             pass
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001  需要捕获所有异常以保证稳定性
             logger.warning("OpenAI API 对话失败：%s", e)
             yield StreamChunk(content=f"\n[错误] {GENERIC_ERROR_MSG}\n")
 
@@ -491,7 +491,7 @@ class OpenAIBackend(Backend):
                 msg = result["choices"][0].get("message", {})
                 return {"message": msg}
             return result
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001  需要捕获所有异常以保证稳定性
             logger.warning("OpenAI API 请求失败：%s", e)
             return {"error": GENERIC_ERROR_MSG, "message": {"content": f"[错误] {GENERIC_ERROR_MSG}"}}
 
@@ -519,7 +519,7 @@ class LlamaCppBackend(Backend):
                 info.supports_vision = False  # llama.cpp 原生 server 不支持多模态
                 info.supports_tools = False   # 原生 HTTP 接口不支持工具调用
                 models.append(info)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001  需要捕获所有异常以保证稳定性
             # 异常详情记录到日志, 不直接暴露给用户
             logger.warning("llama.cpp 获取模型信息失败: %s", e)
             # 添加一个占位模型
@@ -547,7 +547,7 @@ class LlamaCppBackend(Backend):
                 return "image/jpeg"
             # 默认返回 jpeg
             return "image/jpeg"
-        except Exception:
+        except Exception:  # noqa: BLE001  需要捕获所有异常以保证稳定性
             return "image/jpeg"
 
     def _convert_messages(self, messages: List[ChatMessage]) -> List[Dict[str, Any]]:
@@ -625,7 +625,7 @@ class LlamaCppBackend(Backend):
                                 yield StreamChunk(content=content)
                         except json.JSONDecodeError:
                             pass
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001  需要捕获所有异常以保证稳定性
             # 降级到 /completion 接口
             yield from self._fallback_completion(messages, temperature, **kwargs)
 
@@ -666,7 +666,7 @@ class LlamaCppBackend(Backend):
                                 yield StreamChunk(content=content)
                         except json.JSONDecodeError:
                             pass
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001  需要捕获所有异常以保证稳定性
             # 异常详情记录到日志, 向用户返回通用错误消息
             logger.warning("llama.cpp 连接失败: %s", e)
             yield StreamChunk(content=f"\n[错误] {GENERIC_ERROR_MSG}\n")
@@ -700,7 +700,7 @@ class LlamaCppBackend(Backend):
                 timeout=(10, 60),
             )
             return resp.json()
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001  需要捕获所有异常以保证稳定性
             # 异常详情记录到日志, 向用户返回通用错误消息
             logger.warning("llama.cpp 请求失败: %s", e)
             return {"error": GENERIC_ERROR_MSG}
