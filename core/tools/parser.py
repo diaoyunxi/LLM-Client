@@ -103,7 +103,7 @@ def parse_tool_from_file(filepath: str) -> Optional[ToolDefinition]:
     try:
         with open(filepath, "r", encoding="utf-8") as f:
             content = f.read()
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001  需要捕获所有异常以保证稳定性
         print(f"[ToolParser] 读取文件失败 {filepath}: {e}")
         return None
 

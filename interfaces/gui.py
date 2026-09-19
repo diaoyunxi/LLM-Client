@@ -58,7 +58,7 @@ class ChatWorker(QThread):
                 if chunk.content:
                     self.chunk_ready.emit(chunk.content)
             self.finished_signal.emit()
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001  需要捕获所有异常以保证稳定性
             self.error_signal.emit(str(e))
 
     def stop(self):
@@ -720,7 +720,7 @@ class MainWindow(QMainWindow):
                 try:
                     encoded = self.backend.encode_image(f)
                     self.image_attachments.append(encoded)
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001  需要捕获所有异常以保证稳定性
                     QMessageBox.warning(self, "错误", f"加载图片失败: {e}")
             self.image_label.setText(f"📎 已附加 {len(self.image_attachments)} 张图片")
 
@@ -752,7 +752,7 @@ class MainWindow(QMainWindow):
             try:
                 self.conversation.save(path)
                 QMessageBox.information(self, "成功", "对话已保存。")
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001  需要捕获所有异常以保证稳定性
                 QMessageBox.critical(self, "错误", f"保存失败: {e}")
 
     def load_conversation(self):
@@ -773,7 +773,7 @@ class MainWindow(QMainWindow):
                     self.add_message_to_ui(msg)
                 self.update_history_list()
                 QMessageBox.information(self, "成功", "对话已加载。")
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001  需要捕获所有异常以保证稳定性
                 QMessageBox.critical(self, "错误", f"加载失败: {e}")
 
     def update_history_list(self):
