@@ -75,6 +75,14 @@ class AgentLoop:
         4. Markdown 代码块: ```tool\n{...}\n```
         """
         tool_calls = []
+        seen_keys = set()  # 用于去重：(tool_name, args_json)
+
+        def _add_if_new(call):
+            """仅当工具调用不重复时才添加"""
+            key = (call.get("name", ""), json.dumps(call.get("arguments", {}), sort_keys=True))
+            if key not in seen_keys:
+                seen_keys.add(key)
+                tool_calls.append(call)
 
         # 尝试匹配 Markdown 代码块中的 JSON
         code_block_pattern = r'```(?:json|tool)?\s*\n(.*?)\n```'
@@ -82,16 +90,16 @@ class AgentLoop:
             try:
                 data = json.loads(match.group(1).strip())
                 if "tool" in data or "name" in data:
-                    tool_calls.append(self._normalize_tool_call(data))
+                    _add_if_new(self._normalize_tool_call(data))
             except json.JSONDecodeError:
                 pass
 
-        # 尝试匹配内联 JSON 对象
+        # 尝试匹配内联 JSON 对象（跳过已在代码块中匹配的）
         inline_json_pattern = r'\{\s*"(?:tool|name)"\s*:\s*"[^"]+"[^}]*\}'
         for match in re.finditer(inline_json_pattern, content):
             try:
                 data = json.loads(match.group(0))
-                tool_calls.append(self._normalize_tool_call(data))
+                _add_if_new(self._normalize_tool_call(data))
             except json.JSONDecodeError:
                 pass
 
@@ -103,7 +111,7 @@ class AgentLoop:
                 args = json.loads(match.group(2).strip())
             except Exception:
                 args = {"content": match.group(2).strip()}
-            tool_calls.append({"name": tool_name, "arguments": args})
+            _add_if_new({"name": tool_name, "arguments": args})
 
         return tool_calls
 
