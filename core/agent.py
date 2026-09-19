@@ -75,27 +75,26 @@ class AgentLoop:
         4. Markdown 代码块: ```tool\n{...}\n```
         """
         tool_calls = []
+        seen_tools = set()  # 去重集合，防止同一工具被多次匹配
 
-        # 尝试匹配 Markdown 代码块中的 JSON
+        def _add_tool_call(tc: Dict[str, Any]) -> None:
+            """添加工具调用，去重"""
+            key = (tc.get("name", ""), json.dumps(tc.get("arguments", {}), sort_keys=True))
+            if key not in seen_tools:
+                seen_tools.add(key)
+                tool_calls.append(tc)
+
+        # 尝试匹配 Markdown 代码块中的 JSON（优先级最高）
         code_block_pattern = r'```(?:json|tool)?\s*\n(.*?)\n```'
         for match in re.finditer(code_block_pattern, content, re.DOTALL):
             try:
                 data = json.loads(match.group(1).strip())
-                if "tool" in data or "name" in data:
-                    tool_calls.append(self._normalize_tool_call(data))
+                if isinstance(data, dict) and ("tool" in data or "name" in data):
+                    _add_tool_call(self._normalize_tool_call(data))
             except json.JSONDecodeError:
                 pass
 
-        # 尝试匹配内联 JSON 对象
-        inline_json_pattern = r'\{\s*"(?:tool|name)"\s*:\s*"[^"]+"[^}]*\}'
-        for match in re.finditer(inline_json_pattern, content):
-            try:
-                data = json.loads(match.group(0))
-                tool_calls.append(self._normalize_tool_call(data))
-            except json.JSONDecodeError:
-                pass
-
-        # 尝试匹配 XML 格式
+        # 尝试匹配 XML 格式（优先级次之）
         xml_pattern = r'<tool\s+name="([^"]+)"[^>]*>(.*?)</tool>'
         for match in re.finditer(xml_pattern, content, re.DOTALL):
             tool_name = match.group(1)
@@ -103,7 +102,19 @@ class AgentLoop:
                 args = json.loads(match.group(2).strip())
             except Exception:
                 args = {"content": match.group(2).strip()}
-            tool_calls.append({"name": tool_name, "arguments": args})
+            _add_tool_call({"name": tool_name, "arguments": args})
+
+        # 仅在未从代码块/XML 中提取到工具调用时，才尝试匹配内联 JSON
+        # 这避免了对模型输出中示例 JSON 的误匹配
+        if not tool_calls:
+            inline_json_pattern = r'\{\s*"(?:tool|name)"\s*:\s*"[^"]+"[^}]*\}'
+            for match in re.finditer(inline_json_pattern, content):
+                try:
+                    data = json.loads(match.group(0))
+                    if isinstance(data, dict):
+                        _add_tool_call(self._normalize_tool_call(data))
+                except json.JSONDecodeError:
+                    pass
 
         return tool_calls
 
