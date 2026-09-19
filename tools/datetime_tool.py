@@ -15,7 +15,6 @@ TOOL_PARAMETERS:
 """
 
 from datetime import datetime
-import time
 
 
 def run(format: str = "iso", timezone: str = "Asia/Shanghai"):
