@@ -62,7 +62,7 @@ class AgentLoop:
         for cb in self.step_callbacks:
             try:
                 cb(step)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001  需要捕获所有异常以保证稳定性
                 print(f"[AgentLoop] 回调错误: {e}")
 
     def _extract_tool_calls(self, content: str) -> List[Dict[str, Any]]:
@@ -101,7 +101,7 @@ class AgentLoop:
             tool_name = match.group(1)
             try:
                 args = json.loads(match.group(2).strip())
-            except Exception:
+            except Exception:  # noqa: BLE001  需要捕获所有异常以保证稳定性
                 args = {"content": match.group(2).strip()}
             tool_calls.append({"name": tool_name, "arguments": args})
 
@@ -114,7 +114,7 @@ class AgentLoop:
         if isinstance(args, str):
             try:
                 args = json.loads(args)
-            except Exception:
+            except Exception:  # noqa: BLE001  需要捕获所有异常以保证稳定性
                 args = {"input": args}
         return {"name": name, "arguments": args}
 

@@ -245,7 +245,7 @@ def run_cli(backend: str = None, host: str = None, port: int = None,
             if in_thinking_block:
                 sys.stdout.write("\033[0m\n")
             print()  # 换行
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001  需要捕获所有异常以保证稳定性
             print(f"\n[错误] {e}")
 
         # 清空图片（避免重复发送）

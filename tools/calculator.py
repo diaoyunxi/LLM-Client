@@ -105,5 +105,5 @@ def run(expression: str):
         }
     except ZeroDivisionError:
         return {"error": "除零错误"}
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001  需要捕获所有异常以保证稳定性
         return {"error": str(e)}

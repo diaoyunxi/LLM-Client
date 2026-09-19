@@ -133,7 +133,7 @@ def _search_ddg_api(query: str, max_results: int = 5) -> list:
                     })
 
         return results
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001  需要捕获所有异常以保证稳定性
         logger.warning("DuckDuckGo API 搜索失败: %s", e)
         return []
 
