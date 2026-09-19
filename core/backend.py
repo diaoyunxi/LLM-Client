@@ -264,7 +264,7 @@ class OllamaBackend(Backend):
         options.update(kwargs)
 
         try:
-            response = self._request_with_retry(
+            return self._request_with_retry(
                 self.client.chat,
                 model=model,
                 messages=ollama_messages,
@@ -273,7 +273,6 @@ class OllamaBackend(Backend):
                 options=options,
                 think=think,
             )
-            return response
         except Exception as e:
             # 异常详情记录到日志, 向用户返回通用错误消息
             logger.warning("Ollama 请求失败: %s", e)
