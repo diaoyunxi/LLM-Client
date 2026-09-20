@@ -29,3 +29,5 @@ Thumbs.db
 
 # 日志
 *.log
+# Ruff linter cache
+.ruff_cache/
