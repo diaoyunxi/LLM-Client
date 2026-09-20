@@ -5,12 +5,11 @@
 
 import os
 import sys
-import json
 from typing import Optional, List
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core.backend import OllamaBackend, LlamaCppBackend, ModelInfo, StreamChunk
+from core.backend import OllamaBackend, LlamaCppBackend
 from core.conversation import Conversation, Message
 from core.agent import AgentLoop
 from core.tools.loader import ToolLoader
