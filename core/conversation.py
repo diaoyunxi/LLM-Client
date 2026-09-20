@@ -9,8 +9,8 @@
 import json
 import re
 import time
-from dataclasses import dataclass, field, asdict
-from typing import List, Dict, Any, Optional
+from dataclasses import dataclass, field
+from typing import List, Dict, Any
 from .backend import ChatMessage
 
 
