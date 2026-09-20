@@ -87,7 +87,8 @@ class AgentLoop:
                 pass
 
         # 尝试匹配内联 JSON 对象
-        inline_json_pattern = r'\{\s*"(?:tool|name)"\s*:\s*"[^"]+"[^}]*\}'
+        # 支持一层嵌套大括号，如 {"tool": "search", "parameters": {"query": "hello"}}
+        inline_json_pattern = r'\{\s*"(?:tool|name)"\s*:\s*"[^"]+"(?:[^{}]|\{[^{}]*\})*\}'
         for match in re.finditer(inline_json_pattern, content):
             try:
                 data = json.loads(match.group(0))
