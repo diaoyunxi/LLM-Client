@@ -148,6 +148,26 @@ class Backend(ABC):
         with open(image_path, "rb") as f:
             return base64.b64encode(f.read()).decode("utf-8")
 
+    @staticmethod
+    def _detect_image_mime_type(img_base64: str) -> str:
+        """从 base64 编码的图片数据中检测 MIME 类型"""
+        try:
+            header_bytes = base64.b64decode(img_base64[:8])
+            if header_bytes.startswith(b'\x89PNG'):
+                return "image/png"
+            elif header_bytes.startswith(b'GIF8'):
+                return "image/gif"
+            elif header_bytes.startswith(b'RIFF') and len(header_bytes) >= 8:
+                full_header = base64.b64decode(img_base64[:24])
+                if full_header[8:12] == b'WEBP':
+                    return "image/webp"
+            elif header_bytes.startswith(b'\xff\xd8\xff'):
+                return "image/jpeg"
+            return "image/jpeg"
+        except Exception:
+            return "image/jpeg"
+
+
 
 class OllamaBackend(Backend):
     """Ollama 后端（使用 ollama Python 库）"""
@@ -179,24 +199,6 @@ class OllamaBackend(Backend):
         return models
 
 
-    def _detect_image_mime_type(self, img_base64: str) -> str:
-        """从 base64 编码的图片数据中检测 MIME 类型"""
-        try:
-            header_bytes = base64.b64decode(img_base64[:8])
-            # PNG: 89 50 4E 47
-            if header_bytes.startswith(b'\x89PNG'):
-                return "image/png"
-            # GIF: 47 49 46 38
-            elif header_bytes.startswith(b'GIF8'):
-                return "image/gif"
-            # WebP: 52 49 46 46 ... 57 45 42 50
-            elif header_bytes.startswith(b'RIFF') and len(header_bytes) >= 8:
-                full_header = base64.b64decode(img_base64[:24])
-                if full_header[8:12] == b'WEBP':
-                    return "image/webp"
-            # JPEG: FF D8 FF
-            elif header_bytes.startswith(b'\xff\xd8\xff'):
-                return "image/jpeg"
             # 默认返回 jpeg
             return "image/jpeg"
         except Exception:
@@ -323,24 +325,6 @@ class OpenAIBackend(Backend):
         return models
 
 
-    def _detect_image_mime_type(self, img_base64: str) -> str:
-        """从 base64 编码的图片数据中检测 MIME 类型"""
-        try:
-            header_bytes = base64.b64decode(img_base64[:8])
-            # PNG: 89 50 4E 47
-            if header_bytes.startswith(b'\x89PNG'):
-                return "image/png"
-            # GIF: 47 49 46 38
-            elif header_bytes.startswith(b'GIF8'):
-                return "image/gif"
-            # WebP: 52 49 46 46 ... 57 45 42 50
-            elif header_bytes.startswith(b'RIFF') and len(header_bytes) >= 8:
-                full_header = base64.b64decode(img_base64[:24])
-                if full_header[8:12] == b'WEBP':
-                    return "image/webp"
-            # JPEG: FF D8 FF
-            elif header_bytes.startswith(b'\xff\xd8\xff'):
-                return "image/jpeg"
             # 默认返回 jpeg
             return "image/jpeg"
         except Exception:
@@ -527,24 +511,6 @@ class LlamaCppBackend(Backend):
         return models
 
 
-    def _detect_image_mime_type(self, img_base64: str) -> str:
-        """从 base64 编码的图片数据中检测 MIME 类型"""
-        try:
-            header_bytes = base64.b64decode(img_base64[:8])
-            # PNG: 89 50 4E 47
-            if header_bytes.startswith(b'\x89PNG'):
-                return "image/png"
-            # GIF: 47 49 46 38
-            elif header_bytes.startswith(b'GIF8'):
-                return "image/gif"
-            # WebP: 52 49 46 46 ... 57 45 42 50
-            elif header_bytes.startswith(b'RIFF') and len(header_bytes) >= 8:
-                full_header = base64.b64decode(img_base64[:24])
-                if full_header[8:12] == b'WEBP':
-                    return "image/webp"
-            # JPEG: FF D8 FF
-            elif header_bytes.startswith(b'\xff\xd8\xff'):
-                return "image/jpeg"
             # 默认返回 jpeg
             return "image/jpeg"
         except Exception:
