@@ -105,7 +105,16 @@ class AgentLoop:
                 args = {"content": match.group(2).strip()}
             tool_calls.append({"name": tool_name, "arguments": args})
 
-        return tool_calls
+        # Deduplicate tool calls to prevent the same call from being matched
+        # by multiple patterns (code block + inline JSON + XML)
+        seen = set()
+        unique_calls = []
+        for tc in tool_calls:
+            key = (tc.get("name", ""), str(sorted(tc.get("arguments", {}).items())))
+            if key not in seen:
+                seen.add(key)
+                unique_calls.append(tc)
+        return unique_calls
 
     def _normalize_tool_call(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """规范化工具调用格式"""
