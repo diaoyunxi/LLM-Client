@@ -158,7 +158,10 @@ def run(command: str, timeout: int = 30, working_dir: str = ".", max_output: int
         }
 
     cwd = working_dir if os.path.isdir(working_dir) else "."
-    env = {**os.environ, "TERM": "dumb"}
+    # 安全: 仅传递最小化的环境变量, 避免泄露 API Key / 数据库密码等敏感信息 (CWE-200)
+    _SAFE_ENV_KEYS = {"PATH", "HOME", "USER", "LANG", "LC_ALL", "TERM", "SHELL", "PWD", "TMPDIR"}
+    env = {k: v for k, v in os.environ.items() if k in _SAFE_ENV_KEYS}
+    env["TERM"] = "dumb"
 
     try:
         process = subprocess.run(
