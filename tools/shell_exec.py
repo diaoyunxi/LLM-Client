@@ -59,7 +59,7 @@ ALLOWED_COMMANDS = {
     "python", "python3", "pip", "pip3", "node", "npm", "git", "go",
     "java", "javac", "mvn", "gradle", "cargo", "rustc", "make", "cmake",
     "curl", "wget", "ping", "nslookup", "dig", "ifconfig", "ip",
-    "mkdir", "touch", "cp", "mv", "ln", "chmod", "chown", "tar", "zip",
+    "mkdir", "touch", "cp", "mv", "ln", "tar", "zip",
     "unzip", "gzip", "gunzip", "sed", "awk", "xargs", "basename",
     "dirname", "realpath", "readlink", "tee", "seq", "yes", "test",
     "expr", "bc", "cal", "uptime", "w", "last", "dmesg", "lsof",
@@ -138,6 +138,16 @@ def run(command: str, timeout: int = 30, working_dir: str = ".", max_output: int
             "output": "",
             "exit_code": -1,
         }
+
+    # 路径遍历检查：阻止访问 / 或 ~ 等危险路径
+    for token in shlex.split(command)[1:]:
+        if token.startswith("/") and token not in (".", ".."):
+            return {
+                "success": False,
+                "error": f"安全限制: 不允许使用绝对路径 ({token})",
+                "output": "",
+                "exit_code": -1,
+            }
 
     # 使用 shlex.split() 解析命令, shell=False 防止命令注入
     try:
