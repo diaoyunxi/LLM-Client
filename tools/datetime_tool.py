@@ -2,7 +2,7 @@
 TOOL_NAME: datetime_tool
 TOOL_DESCRIPTION: 获取当前日期和时间信息，支持格式化输出和时区转换
 TOOL_PARAMETERS:
-    format:
+    fmt:
         type: string
         description: 日期时间格式，如 "%Y-%m-%d %H:%M:%S" 或 "iso"、"timestamp"
         required: false
@@ -18,7 +18,7 @@ from datetime import datetime
 import time
 
 
-def run(format: str = "iso", timezone: str = "Asia/Shanghai"):
+def run(fmt: str = "iso", timezone: str = "Asia/Shanghai"):
     """
     获取当前日期时间
     """
@@ -52,16 +52,16 @@ def run(format: str = "iso", timezone: str = "Asia/Shanghai"):
     now_with_tz = now.replace(tzinfo=tz)
 
     # 格式化输出
-    if format.lower() == "iso":
+    if fmt.lower() == "iso":
         formatted = now_with_tz.isoformat()
-    elif format.lower() == "timestamp":
+    elif fmt.lower() == "timestamp":
         formatted = str(int(now.timestamp()))
-    elif format.lower() == "date":
+    elif fmt.lower() == "date":
         formatted = now.strftime("%Y-%m-%d")
-    elif format.lower() == "time":
+    elif fmt.lower() == "time":
         formatted = now.strftime("%H:%M:%S")
     else:
-        formatted = now.strftime(format)
+        formatted = now.strftime(fmt)
 
     return {
         "datetime": formatted,
