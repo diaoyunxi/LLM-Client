@@ -23,7 +23,7 @@
 ## 项目结构
 
 ```
-llm_client/
+LLM-Client/
 ├── core/                   # 后端核心模块
 │   ├── backend.py          # 后端抽象（OllamaBackend / LlamaCppBackend）
 │   ├── conversation.py     # 多轮对话管理
@@ -37,8 +37,12 @@ llm_client/
 │   └── gui.py              # PyQt6 图形界面
 ├── tools/                  # 外置工具目录（示例工具存放处）
 │   ├── calculator.py       # 计算器工具
-│   ├── weather.py          # 天气查询工具（模拟）
-│   └── datetime_tool.py    # 日期时间工具
+│   ├── datetime_tool.py    # 日期时间工具
+│   ├── shell_exec.py       # Shell 命令执行工具
+│   └── web_search.py       # 网页搜索工具
+├── tests/                  # 测试
+│   ├── test_agent.py       # 智能体测试
+│   └── test_loader.py      # 工具加载测试
 ├── main.py                 # 统一入口
 ├── requirements.txt        # 依赖
 └── README.md               # 本文件
