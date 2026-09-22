@@ -141,9 +141,10 @@ class Backend(ABC):
         安全限制: 仅允许读取用户主目录下的文件, 防止越权读取系统敏感文件。
         """
         # 路径校验: 限制只能读取用户目录下的文件
+        # 使用 os.sep 防止 /home/user 误匹配 /home/user2 等同前缀目录 (CWE-22)
         home_dir = os.path.expanduser("~")
         real_path = os.path.realpath(image_path)
-        if not real_path.startswith(home_dir):
+        if not real_path.startswith(home_dir + os.sep) and real_path != home_dir:
             raise PermissionError(f"安全限制: 仅允许读取用户目录 ({home_dir}) 下的文件")
         with open(image_path, "rb") as f:
             return base64.b64encode(f.read()).decode("utf-8")
