@@ -243,8 +243,12 @@ class AgentLoop:
                 if thinking_content:
                     yield StreamChunk(thinking=thinking_content)
 
-                if not native_tool_calls and not self._has_tool_calls(content):
+                # 始终输出模型的文本回复（不论是否有工具调用）
+                # 修复：非流式模式下，模型同时返回文本和工具调用时，文本不会被输出给用户
+                if content:
                     yield StreamChunk(content=content)
+
+                if not native_tool_calls and not self._has_tool_calls(content):
                     break
 
                 # 提取工具调用
@@ -252,6 +256,7 @@ class AgentLoop:
                 for tc in native_tool_calls:
                     func = tc.get("function", {})
                     tool_calls.append({
+                        "id": tc.get("id", ""),
                         "name": func.get("name", ""),
                         "arguments": func.get("arguments", {}),
                     })
