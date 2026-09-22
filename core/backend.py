@@ -625,7 +625,7 @@ class LlamaCppBackend(Backend):
                                 yield StreamChunk(content=content)
                         except json.JSONDecodeError:
                             pass
-        except Exception as e:
+        except Exception:  # noqa: BLE001
             # 降级到 /completion 接口
             yield from self._fallback_completion(messages, temperature, **kwargs)
 
