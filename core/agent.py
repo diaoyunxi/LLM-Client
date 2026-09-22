@@ -87,12 +87,16 @@ class AgentLoop:
                 pass
 
         # 尝试匹配内联 JSON 对象
-        inline_json_pattern = r'\{\s*"(?:tool|name)"\s*:\s*"[^"]+"[^}]*\}'
+        # 使用括号平衡匹配替代简单的 [^}]* 以正确处理嵌套对象
+        inline_json_pattern = r'\{\s*"(?:tool|name)"\s*:\s*"[^"]+"\s*(?:,\s*"[^"]+"\s*:\s*(?:"[^"]*"|\{[^}]*\}|\[[^\]]*\]|\d+(?:\.\d+)?|true|false|null)\s*)*\}'
         for match in re.finditer(inline_json_pattern, content):
             try:
                 data = json.loads(match.group(0))
-                tool_calls.append(self._normalize_tool_call(data))
-            except json.JSONDecodeError:
+                # 去重：跳过已由代码块模式提取过的调用
+                normalized = self._normalize_tool_call(data)
+                if not any(tc["name"] == normalized["name"] and tc["arguments"] == normalized["arguments"] for tc in tool_calls):
+                    tool_calls.append(normalized)
+            except (json.JSONDecodeError, ValueError):
                 pass
 
         # 尝试匹配 XML 格式
