@@ -41,7 +41,7 @@ class ChatWorker(QThread):
     finished_signal = pyqtSignal()
     error_signal = pyqtSignal(str)
 
-    def __init__(self, agent: AgentLoop, text: str, images: List[str] = None):
+    def __init__(self, agent: AgentLoop, text: str, images: list[str] | None = None):
         super().__init__()
         self.agent = agent
         self.text = text

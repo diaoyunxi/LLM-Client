@@ -64,7 +64,7 @@ class Conversation:
         if not self.id:
             self.id = f"conv_{int(time.time() * 1000)}"
 
-    def add_message(self, role: str, content: str, images: List[str] = None, thinking: str = "", **kwargs) -> Message:
+    def add_message(self, role: str, content: str, images: list[str] | None = None, thinking: str = "", **kwargs) -> Message:
         """添加消息"""
         msg = Message(
             role=role,

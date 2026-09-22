@@ -54,9 +54,9 @@ def select_model(backend) -> Optional[str]:
         print("无效选择，请重试。")
 
 
-def run_cli(backend: str = None, host: str = None, port: int = None,
-            model: str = None, tools_dir: str = None, system: str = None,
-            image: str = None, think: bool = False):
+def run_cli(backend: str | None = None, host: str | None = None, port: int | None = None,
+            model: str | None = None, tools_dir: str | None = None, system: str | None = None,
+            image: str | None = None, think: bool = False):
     """
     启动 CLI 界面
 
