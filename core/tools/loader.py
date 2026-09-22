@@ -15,7 +15,7 @@ from .parser import ToolDefinition, parse_tool_from_file
 class ToolLoader:
     """工具加载器"""
 
-    def __init__(self, tools_dirs: List[str] = None):
+    def __init__(self, tools_dirs: list[str] | None = None):
         self.tools_dirs = tools_dirs or []
         self.tools: Dict[str, ToolDefinition] = {}
         self._functions: Dict[str, Callable] = {}

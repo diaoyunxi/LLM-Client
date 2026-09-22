@@ -125,7 +125,7 @@ class AgentLoop:
     def run(
         self,
         user_input: str,
-        images: List[str] = None,
+        images: list[str] | None = None,
         stream: bool = True,
     ) -> Generator[StreamChunk, None, None]:
         """
