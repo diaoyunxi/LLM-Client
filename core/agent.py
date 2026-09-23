@@ -73,37 +73,60 @@ class AgentLoop:
         2. JSON 格式: {"tool": "name", "parameters": {...}}
         3. XML 格式: <tool name="...">...</tool>
         4. Markdown 代码块: ```tool\n{...}\n```
+
+        使用位置去重，防止同一工具调用被多种模式重复匹配。
         """
         tool_calls = []
+        # 记录已匹配的文本位置范围，用于去重
+        matched_spans: List[tuple] = []
+
+        def _overlaps_existing(span: tuple) -> bool:
+            """检查新匹配的区间是否与已有匹配区间重叠"""
+            for existing in matched_spans:
+                if span[0] < existing[1] and span[1] > existing[0]:
+                    return True
+            return False
 
         # 尝试匹配 Markdown 代码块中的 JSON
         code_block_pattern = r'```(?:json|tool)?\s*\n(.*?)\n```'
         for match in re.finditer(code_block_pattern, content, re.DOTALL):
+            span = (match.start(), match.end())
+            if _overlaps_existing(span):
+                continue
             try:
                 data = json.loads(match.group(1).strip())
                 if "tool" in data or "name" in data:
                     tool_calls.append(self._normalize_tool_call(data))
+                    matched_spans.append(span)
             except json.JSONDecodeError:
                 pass
 
         # 尝试匹配内联 JSON 对象
         inline_json_pattern = r'\{\s*"(?:tool|name)"\s*:\s*"[^"]+"[^}]*\}'
         for match in re.finditer(inline_json_pattern, content):
+            span = (match.start(), match.end())
+            if _overlaps_existing(span):
+                continue
             try:
                 data = json.loads(match.group(0))
                 tool_calls.append(self._normalize_tool_call(data))
+                matched_spans.append(span)
             except json.JSONDecodeError:
                 pass
 
         # 尝试匹配 XML 格式
         xml_pattern = r'<tool\s+name="([^"]+)"[^>]*>(.*?)</tool>'
         for match in re.finditer(xml_pattern, content, re.DOTALL):
+            span = (match.start(), match.end())
+            if _overlaps_existing(span):
+                continue
             tool_name = match.group(1)
             try:
                 args = json.loads(match.group(2).strip())
             except Exception:
                 args = {"content": match.group(2).strip()}
             tool_calls.append({"name": tool_name, "arguments": args})
+            matched_spans.append(span)
 
         return tool_calls
 
