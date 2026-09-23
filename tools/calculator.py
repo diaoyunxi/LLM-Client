@@ -41,6 +41,12 @@ def run(expression: str):
                 elif isinstance(node.op, ast.Div):
                     return left / right
                 elif isinstance(node.op, ast.Pow):
+                    # SECURITY: limit exponent to prevent DoS (e.g., 9**9**9)
+                    if isinstance(right, (int, float)) and right > 1000:
+                        raise ValueError(f"指数过大（{right}），最大允许 1000")
+                    if isinstance(left, (int, float)) and isinstance(right, (int, float)) and right > 0 and left > 1:
+                        if right * (left.bit_length() if isinstance(left, int) else 10) > 10000:
+                            raise ValueError("计算结果可能过大，已拒绝")
                     return left ** right
                 elif isinstance(node.op, ast.Mod):
                     return left % right
