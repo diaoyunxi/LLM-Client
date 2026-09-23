@@ -59,11 +59,11 @@ ALLOWED_COMMANDS = {
     "python", "python3", "pip", "pip3", "node", "npm", "git", "go",
     "java", "javac", "mvn", "gradle", "cargo", "rustc", "make", "cmake",
     "curl", "wget", "ping", "nslookup", "dig", "ifconfig", "ip",
-    "mkdir", "touch", "cp", "mv", "ln", "chmod", "chown", "tar", "zip",
-    "unzip", "gzip", "gunzip", "sed", "awk", "xargs", "basename",
+    # "mkdir", "touch", "cp", "mv", "ln", "chmod", "chown", "tar", "zip",
+    # "unzip", "gzip", "gunzip", "sed", "awk", "xargs", "basename",
     "dirname", "realpath", "readlink", "tee", "seq", "yes", "test",
     "expr", "bc", "cal", "uptime", "w", "last", "dmesg", "lsof",
-    "netstat", "ss", "lscpu", "lsmem", "lsblk", "mount", "umount",
+    "netstat", "ss", "lscpu", "lsmem", "lsblk", # "mount", "umount",  # removed: dangerous in LLM agent context
 }
 
 # 命令最大长度限制 (字符)
