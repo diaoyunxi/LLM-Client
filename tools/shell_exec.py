@@ -180,7 +180,7 @@ def run(command: str, timeout: int = 30, working_dir: str = ".", max_output: int
             stdout = stdout[:max_output] + f"\n... (输出已截断，共 {len(process.stdout or '')} 字符)"
             stdout_truncated = True
         if len(stderr) > max_output // 2:
-            stderr = stderr[:max_output // 2] + f"\n... (错误输出已截断)"
+            stderr = stderr[:max_output // 2] + "\n... (错误输出已截断)"
             stderr_truncated = True
 
         return {
