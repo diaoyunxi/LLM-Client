@@ -25,20 +25,27 @@
 ```
 llm_client/
 ├── core/                   # 后端核心模块
+│   ├── __init__.py         # 模块入口与公共导出
 │   ├── backend.py          # 后端抽象（OllamaBackend / LlamaCppBackend）
 │   ├── conversation.py     # 多轮对话管理
 │   ├── agent.py            # 智能体循环（工具调用解析与执行）
 │   └── tools/              # 工具系统
+│       ├── __init__.py     # 工具系统入口
 │       ├── parser.py       # 从注释解析工具定义
 │       └── loader.py       # 工具加载与执行
 ├── interfaces/             # 三种界面实现
+│   ├── __init__.py         # 界面模块入口
 │   ├── cli.py              # 纯终端命令行
 │   ├── tui.py              # Textual 终端界面
 │   └── gui.py              # PyQt6 图形界面
 ├── tools/                  # 外置工具目录（示例工具存放处）
 │   ├── calculator.py       # 计算器工具
-│   ├── weather.py          # 天气查询工具（模拟）
-│   └── datetime_tool.py    # 日期时间工具
+│   ├── datetime_tool.py    # 日期时间工具
+│   ├── shell_exec.py       # Shell 命令执行工具
+│   └── web_search.py       # 网页搜索工具
+├── tests/                  # 测试目录
+│   ├── test_agent.py       # 智能体测试
+│   └── test_loader.py      # 工具加载器测试
 ├── main.py                 # 统一入口
 ├── requirements.txt        # 依赖
 └── README.md               # 本文件
