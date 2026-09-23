@@ -122,153 +122,214 @@ class AgentLoop:
         """检查回复中是否包含工具调用"""
         return len(self._extract_tool_calls(content)) > 0
 
+    def _stream_chat_iteration(
+        self,
+        messages: list,
+        tools: list | None,
+    ) -> tuple[str, str, list[dict]]:
+        """Execute one streaming iteration, yielding chunks and returning full response.
+
+        Returns:
+            (full_response, full_thinking, tool_calls)
+        """
+        full_response = ""
+        full_thinking = ""
+        in_thinking = False
+
+        for chunk in self.backend.chat(
+            model=self.model,
+            messages=messages,
+            tools=tools,
+            stream=True,
+            temperature=self.temperature,
+            think=self.think,
+        ):
+            if chunk.thinking:
+                full_thinking += chunk.thinking
+                in_thinking = True
+                yield StreamChunk(thinking=chunk.thinking)
+            if chunk.content:
+                full_response += chunk.content
+                in_thinking = False
+                yield StreamChunk(content=chunk.content)
+
+        tool_calls = self._extract_tool_calls(full_response)
+        return full_response, full_thinking, tool_calls
+
+    def _execute_tool_calls_streaming(
+        self,
+        tool_calls: list[dict],
+    ) -> Generator[StreamChunk, None, None]:
+        """Execute tool calls and yield results as StreamChunks.
+
+        Also notifies step callbacks and adds results to conversation.
+        """
+        for tc in tool_calls:
+            tool_text = f"\n[工具调用] {tc['name']}: {json.dumps(tc['arguments'], ensure_ascii=False)}\n"
+            yield StreamChunk(content=tool_text)
+            self._notify_step(AgentStep(
+                step_type="tool_call",
+                tool_name=tc["name"],
+                tool_args=tc["arguments"],
+            ))
+
+            result = self.tool_loader.execute(tc["name"], tc["arguments"])
+
+            if result["success"]:
+                result_text = (
+                    json.dumps(result["output"], ensure_ascii=False)
+                    if not isinstance(result["output"], str)
+                    else result["output"]
+                )
+                yield StreamChunk(content=f"[工具结果] {result_text}\n")
+                self._notify_step(AgentStep(
+                    step_type="tool_result",
+                    tool_name=tc["name"],
+                    tool_result=result["output"],
+                ))
+            else:
+                yield StreamChunk(content=f"[工具错误] {result['error']}\n")
+                self._notify_step(AgentStep(
+                    step_type="tool_result",
+                    tool_name=tc["name"],
+                    tool_error=result["error"],
+                ))
+
+            self.conversation.add_message(
+                "tool",
+                json.dumps(result, ensure_ascii=False),
+                **{"tool_call_id": tc.get("id", ""), "name": tc["name"]}
+            )
+
+    def _non_stream_iteration(
+        self,
+        messages: list,
+        tools: list | None,
+    ) -> tuple[str, str, list[dict], bool]:
+        """Execute one non-streaming iteration.
+
+        Returns:
+            (content, thinking, tool_calls, should_break)
+        """
+        response = self.backend.chat_complete(
+            model=self.model,
+            messages=messages,
+            tools=tools,
+            temperature=self.temperature,
+            think=self.think,
+        )
+
+        if "error" in response:
+            error_msg = f"[错误] {response['error']}"
+            self.conversation.add_message("assistant", error_msg)
+            return error_msg, "", [], True
+
+        msg = response.get("message", {})
+        content = msg.get("content", "")
+        thinking_content = msg.get("thinking", "")
+        native_tool_calls = msg.get("tool_calls", [])
+
+        self.conversation.add_message("assistant", content, thinking=thinking_content)
+
+        if thinking_content:
+            yield StreamChunk(thinking=thinking_content)
+
+        # Extract tool calls from native format or text
+        tool_calls = []
+        for tc in native_tool_calls:
+            func = tc.get("function", {})
+            tool_calls.append({
+                "name": func.get("name", ""),
+                "arguments": func.get("arguments", {}),
+            })
+        if not tool_calls:
+            tool_calls = self._extract_tool_calls(content)
+
+        should_break = not native_tool_calls and not self._has_tool_calls(content)
+        if should_break:
+            yield StreamChunk(content=content)
+
+        return content, thinking_content, tool_calls, should_break
+
     def run(
         self,
         user_input: str,
-        images: List[str] = None,
+        images: list[str] | None = None,
         stream: bool = True,
     ) -> Generator[StreamChunk, None, None]:
+        """Run the agent loop, yielding StreamChunks for thinking and content.
+
+        Automatically detects and executes tool calls, continuing the conversation
+        until no more tool calls are detected or max_iterations is reached.
         """
-        运行智能体循环
-        返回 StreamChunk 生成器，区分 thinking 和 content
-        如果检测到工具调用，自动执行并继续对话
-        """
-        # 添加用户消息
         self.conversation.add_message("user", user_input, images=images or [])
 
         iteration = 0
         while iteration < self.max_iterations:
             iteration += 1
-
-            # 获取上下文
             messages = self.conversation.get_context_messages()
-            tools = self.tool_loader.get_tool_definitions()
+            tools = self.tool_loader.get_tool_definitions() or None
 
-            # 调用模型: 统一使用流式或非流式, 不在流式输出后重新请求
             if stream:
-                # 流式输出: 逐字产生回复
-                full_response = ""
-                full_thinking = ""
-                in_thinking = False
-
-                for chunk in self.backend.chat(
-                    model=self.model,
-                    messages=messages,
-                    tools=tools if tools else None,
-                    stream=True,
-                    temperature=self.temperature,
-                    think=self.think,
-                ):
-                    # 收集思考内容
-                    if chunk.thinking:
-                        full_thinking += chunk.thinking
-                        if not in_thinking:
-                            in_thinking = True
-                        yield StreamChunk(thinking=chunk.thinking)
-                    # 收集正式回复
-                    if chunk.content:
-                        full_response += chunk.content
-                        if in_thinking:
-                            in_thinking = False
-                        yield StreamChunk(content=chunk.content)
-
-                # 从流式输出文本中提取工具调用 (不再发起非流式重请求)
-                tool_calls = self._extract_tool_calls(full_response)
-
-                self.conversation.add_message("assistant", full_response, thinking=full_thinking)
-
-                if not tool_calls:
-                    # 没有工具调用，对话结束
-                    break
-
-                # 执行工具调用
-                for tc in tool_calls:
-                    tool_text = f"\n[工具调用] {tc['name']}: {json.dumps(tc['arguments'], ensure_ascii=False)}\n"
-                    yield StreamChunk(content=tool_text)
-                    self._notify_step(AgentStep(
-                        step_type="tool_call",
-                        tool_name=tc["name"],
-                        tool_args=tc["arguments"],
-                    ))
-
-                    result = self.tool_loader.execute(tc["name"], tc["arguments"])
-
-                    if result["success"]:
-                        result_text = json.dumps(result["output"], ensure_ascii=False) if not isinstance(result["output"], str) else result["output"]
-                        yield StreamChunk(content=f"[工具结果] {result_text}\n")
-                        self._notify_step(AgentStep(
-                            step_type="tool_result",
-                            tool_name=tc["name"],
-                            tool_result=result["output"],
-                        ))
-                    else:
-                        yield StreamChunk(content=f"[工具错误] {result['error']}\n")
-                        self._notify_step(AgentStep(
-                            step_type="tool_result",
-                            tool_name=tc["name"],
-                            tool_error=result["error"],
-                        ))
-
-                    # 添加工具结果到对话
-                    self.conversation.add_message(
-                        "tool",
-                        json.dumps(result, ensure_ascii=False),
-                        **{"tool_call_id": tc.get("id", ""), "name": tc["name"]}
-                    )
-
+                yield from self._run_streaming(messages, tools)
+                break  # Streaming handles its own iteration logic
             else:
-                # 非流式（后续迭代或不需要流式）
-                response = self.backend.chat_complete(
-                    model=self.model,
-                    messages=messages,
-                    tools=tools if tools else None,
-                    temperature=self.temperature,
-                    think=self.think,
-                )
-
-                if "error" in response:
-                    error_msg = f"[错误] {response['error']}"
-                    self.conversation.add_message("assistant", error_msg)
-                    yield StreamChunk(content=error_msg)
+                should_continue = yield from self._run_non_streaming(messages, tools)
+                if not should_continue:
                     break
-
-                msg = response.get("message", {})
-                content = msg.get("content", "")
-                thinking_content = msg.get("thinking", "")
-                native_tool_calls = msg.get("tool_calls", [])
-
-                self.conversation.add_message("assistant", content, thinking=thinking_content)
-
-                # 输出思考内容
-                if thinking_content:
-                    yield StreamChunk(thinking=thinking_content)
-
-                if not native_tool_calls and not self._has_tool_calls(content):
-                    yield StreamChunk(content=content)
-                    break
-
-                # 提取工具调用
-                tool_calls = []
-                for tc in native_tool_calls:
-                    func = tc.get("function", {})
-                    tool_calls.append({
-                        "name": func.get("name", ""),
-                        "arguments": func.get("arguments", {}),
-                    })
-                if not tool_calls:
-                    tool_calls = self._extract_tool_calls(content)
-
-                for tc in tool_calls:
-                    yield StreamChunk(content=f"\n[工具调用] {tc['name']}\n")
-                    result = self.tool_loader.execute(tc["name"], tc["arguments"])
-                    result_text = json.dumps(result, ensure_ascii=False)
-                    yield StreamChunk(content=f"[工具结果] {result_text}\n")
-
-                    self.conversation.add_message(
-                        "tool",
-                        result_text,
-                        **{"tool_call_id": tc.get("id", ""), "name": tc["name"]}
-                    )
 
         if iteration >= self.max_iterations:
             yield StreamChunk(content="\n[系统] 已达到最大迭代次数，对话终止。\n")
+
+    def _run_streaming(
+        self,
+        messages: list,
+        tools: list | None,
+    ) -> Generator[StreamChunk, None, None]:
+        """Handle streaming mode iteration with tool call detection and execution."""
+        iteration = 0
+        while iteration < self.max_iterations:
+            iteration += 1
+            messages = self.conversation.get_context_messages()
+            tools = self.tool_loader.get_tool_definitions() or None
+
+            full_response, full_thinking, tool_calls = yield from self._stream_chat_iteration(
+                messages, tools
+            )
+            self.conversation.add_message("assistant", full_response, thinking=full_thinking)
+
+            if not tool_calls:
+                break
+
+            yield from self._execute_tool_calls_streaming(tool_calls)
+
+    def _run_non_streaming(
+        self,
+        messages: list,
+        tools: list | None,
+    ) -> Generator[StreamChunk, None, bool]:
+        """Handle non-streaming mode iteration.
+
+        Returns:
+            True if should continue iterating, False if done.
+        """
+        content, thinking, tool_calls, should_break = yield from self._non_stream_iteration(
+            messages, tools
+        )
+
+        if should_break:
+            return False
+
+        for tc in tool_calls:
+            yield StreamChunk(content=f"\n[工具调用] {tc['name']}\n")
+            result = self.tool_loader.execute(tc["name"], tc["arguments"])
+            result_text = json.dumps(result, ensure_ascii=False)
+            yield StreamChunk(content=f"[工具结果] {result_text}\n")
+
+            self.conversation.add_message(
+                "tool",
+                result_text,
+                **{"tool_call_id": tc.get("id", ""), "name": tc["name"]}
+            )
+
+        return True
