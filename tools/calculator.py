@@ -41,6 +41,11 @@ def run(expression: str):
                 elif isinstance(node.op, ast.Div):
                     return left / right
                 elif isinstance(node.op, ast.Pow):
+                    # DoS 防护：限制幂运算指数大小和底数
+                    if isinstance(right, (int, float)) and abs(right) > 1000:
+                        raise ValueError("幂运算指数超出安全范围 (|exp| > 1000)")
+                    if isinstance(left, (int, float)) and abs(left) > 1e15:
+                        raise ValueError("底数超出安全范围 (|base| > 1e15)")
                     return left ** right
                 elif isinstance(node.op, ast.Mod):
                     return left % right
