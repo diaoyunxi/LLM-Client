@@ -63,7 +63,7 @@ ALLOWED_COMMANDS = {
     "unzip", "gzip", "gunzip", "sed", "awk", "xargs", "basename",
     "dirname", "realpath", "readlink", "tee", "seq", "yes", "test",
     "expr", "bc", "cal", "uptime", "w", "last", "dmesg", "lsof",
-    "netstat", "ss", "lscpu", "lsmem", "lsblk", "mount", "umount",
+    "netstat", "ss", "lscpu", "lsmem",
 }
 
 # 命令最大长度限制 (字符)
