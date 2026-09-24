@@ -70,30 +70,71 @@ class AgentLoop:
         从模型回复中提取工具调用
         支持多种格式：
         1. Ollama 原生格式（已在外部解析）
-        2. JSON 格式: {"tool": "name", "parameters": {...}}
+        2. JSON 格式: {"tool": "name", "parameters": {...}}  (支持任意嵌套)
         3. XML 格式: <tool name="...">...</tool>
         4. Markdown 代码块: ```tool\n{...}\n```
         """
         tool_calls = []
+        seen: set = set()  # 用于去重（基于 name + args 的哈希）
+
+        def _add(data: Dict[str, Any]) -> None:
+            normalized = self._normalize_tool_call(data)
+            key = (normalized["name"], json.dumps(normalized["arguments"], sort_keys=True))
+            if key not in seen:
+                seen.add(key)
+                tool_calls.append(normalized)
 
         # 尝试匹配 Markdown 代码块中的 JSON
         code_block_pattern = r'```(?:json|tool)?\s*\n(.*?)\n```'
         for match in re.finditer(code_block_pattern, content, re.DOTALL):
             try:
                 data = json.loads(match.group(1).strip())
-                if "tool" in data or "name" in data:
-                    tool_calls.append(self._normalize_tool_call(data))
+                if isinstance(data, dict) and ("tool" in data or "name" in data):
+                    _add(data)
+                elif isinstance(data, list):
+                    for item in data:
+                        if isinstance(item, dict) and ("tool" in item or "name" in item):
+                            _add(item)
             except json.JSONDecodeError:
                 pass
 
-        # 尝试匹配内联 JSON 对象
-        inline_json_pattern = r'\{\s*"(?:tool|name)"\s*:\s*"[^"]+"[^}]*\}'
-        for match in re.finditer(inline_json_pattern, content):
-            try:
-                data = json.loads(match.group(0))
-                tool_calls.append(self._normalize_tool_call(data))
-            except json.JSONDecodeError:
-                pass
+        # 使用大括号计数解析内联 JSON 对象（支持任意嵌套深度）
+        inline_json_pattern = re.compile(r'\{\s*"(?:tool|name)"\s*:\s*"')
+        for match in inline_json_pattern.finditer(content):
+            start = match.start()
+            depth = 0
+            in_string = False
+            escape = False
+            end = start
+            for i in range(start, min(start + 8192, len(content))):
+                ch = content[i]
+                if escape:
+                    escape = False
+                    continue
+                if ch == '\\':
+                    if in_string:
+                        escape = True
+                    continue
+                if ch == '"' and not escape:
+                    in_string = not in_string
+                    continue
+                if in_string:
+                    continue
+                if ch == '{':
+                    depth += 1
+                elif ch == '}':
+                    depth -= 1
+                    if depth == 0:
+                        end = i + 1
+                        break
+            if depth == 0 and end > start:
+                raw = content[start:end]
+                try:
+                    data = json.loads(raw)
+                    if isinstance(data, dict) and ("tool" in data or "name" in data):
+                        _add(data)
+                except json.JSONDecodeError:
+                    pass
 
         # 尝试匹配 XML 格式
         xml_pattern = r'<tool\s+name="([^"]+)"[^>]*>(.*?)</tool>'
@@ -103,7 +144,7 @@ class AgentLoop:
                 args = json.loads(match.group(2).strip())
             except Exception:
                 args = {"content": match.group(2).strip()}
-            tool_calls.append({"name": tool_name, "arguments": args})
+            _add({"name": tool_name, "arguments": args})
 
         return tool_calls
 
