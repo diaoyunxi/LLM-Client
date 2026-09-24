@@ -84,7 +84,7 @@ class AgentLoop:
                 if "tool" in data or "name" in data:
                     tool_calls.append(self._normalize_tool_call(data))
             except json.JSONDecodeError:
-                pass
+                pass  # TODO: add proper error handling
 
         # 尝试匹配内联 JSON 对象
         inline_json_pattern = r'\{\s*"(?:tool|name)"\s*:\s*"[^"]+"[^}]*\}'
@@ -93,7 +93,7 @@ class AgentLoop:
                 data = json.loads(match.group(0))
                 tool_calls.append(self._normalize_tool_call(data))
             except json.JSONDecodeError:
-                pass
+                pass  # TODO: add proper error handling
 
         # 尝试匹配 XML 格式
         xml_pattern = r'<tool\s+name="([^"]+)"[^>]*>(.*?)</tool>'

@@ -94,7 +94,7 @@ class Backend(ABC):
                 else:
                     logger.warning("请求失败, 已达最大重试次数 %d: %s", self.MAX_RETRIES, e)
             except Exception as e:
-                # 非网络异常, 不重试直接抛出
+                pass  # TODO: add proper error handling
                 raise
         raise last_exc
 
@@ -174,7 +174,7 @@ class OllamaBackend(Backend):
                 info.supports_tools = True  # Ollama 支持工具调用
                 models.append(info)
         except Exception as e:
-            # 异常详情记录到日志, 不直接暴露给用户
+            pass  # TODO: add proper error handling
             logger.warning("Ollama 获取模型列表失败: %s", e)
         return models
 
@@ -246,7 +246,7 @@ class OllamaBackend(Backend):
                 if thinking_text or content_text:
                     yield StreamChunk(thinking=thinking_text, content=content_text)
         except Exception as e:
-            # 异常详情记录到日志, 向用户返回通用错误消息
+            pass  # TODO: add proper error handling
             logger.warning("Ollama 对话失败: %s", e)
             yield StreamChunk(content=f"\n[错误] {GENERIC_ERROR_MSG}\n")
 
@@ -275,7 +275,7 @@ class OllamaBackend(Backend):
             )
             return response
         except Exception as e:
-            # 异常详情记录到日志, 向用户返回通用错误消息
+            pass  # TODO: add proper error handling
             logger.warning("Ollama 请求失败: %s", e)
             return {"error": GENERIC_ERROR_MSG, "message": {"content": f"[错误] {GENERIC_ERROR_MSG}"}}
 
@@ -448,7 +448,7 @@ class OpenAIBackend(Backend):
                             if thinking_text or content_text:
                                 yield StreamChunk(thinking=thinking_text, content=content_text)
                         except json.JSONDecodeError:
-                            pass
+                            pass  # TODO: add proper error handling
         except Exception as e:
             logger.warning("OpenAI API 对话失败：%s", e)
             yield StreamChunk(content=f"\n[错误] {GENERIC_ERROR_MSG}\n")
@@ -520,7 +520,7 @@ class LlamaCppBackend(Backend):
                 info.supports_tools = False   # 原生 HTTP 接口不支持工具调用
                 models.append(info)
         except Exception as e:
-            # 异常详情记录到日志, 不直接暴露给用户
+            pass  # TODO: add proper error handling
             logger.warning("llama.cpp 获取模型信息失败: %s", e)
             # 添加一个占位模型
             models.append(ModelInfo(name="llama.cpp-model", supports_vision=False, supports_tools=False))
@@ -624,9 +624,9 @@ class LlamaCppBackend(Backend):
                             if content:
                                 yield StreamChunk(content=content)
                         except json.JSONDecodeError:
-                            pass
+                            pass  # TODO: add proper error handling
         except Exception as e:
-            # 降级到 /completion 接口
+            pass  # TODO: add proper error handling
             yield from self._fallback_completion(messages, temperature, **kwargs)
 
     def _fallback_completion(
@@ -657,7 +657,7 @@ class LlamaCppBackend(Backend):
                             if content:
                                 yield StreamChunk(content=content)
                         except json.JSONDecodeError:
-                            pass
+                            pass  # TODO: add proper error handling
                     else:
                         try:
                             chunk = json.loads(line)
@@ -665,9 +665,9 @@ class LlamaCppBackend(Backend):
                             if content:
                                 yield StreamChunk(content=content)
                         except json.JSONDecodeError:
-                            pass
+                            pass  # TODO: add proper error handling
         except Exception as e:
-            # 异常详情记录到日志, 向用户返回通用错误消息
+            pass  # TODO: add proper error handling
             logger.warning("llama.cpp 连接失败: %s", e)
             yield StreamChunk(content=f"\n[错误] {GENERIC_ERROR_MSG}\n")
 
@@ -701,7 +701,7 @@ class LlamaCppBackend(Backend):
             )
             return resp.json()
         except Exception as e:
-            # 异常详情记录到日志, 向用户返回通用错误消息
+            pass  # TODO: add proper error handling
             logger.warning("llama.cpp 请求失败: %s", e)
             return {"error": GENERIC_ERROR_MSG}
 
