@@ -133,7 +133,12 @@ class ToolLoader:
         if name in self.tools:
             self.tools.pop(name, None)
             self._functions.pop(name, None)
-            self._modules.pop(name, None)
+            # 清理 sys.modules 防止模块内存泄漏（reload 时旧模块会残留）
+            module = self._modules.pop(name, None)
+            if module is not None:
+                mod_name = getattr(module, '__name__', None)
+                if mod_name and mod_name in sys.modules:
+                    del sys.modules[mod_name]
             return True
         return False
 
