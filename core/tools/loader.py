@@ -8,18 +8,19 @@ import sys
 import json
 import uuid
 import importlib.util
-from typing import Dict, List, Any, Optional, Callable
+from typing import Any, Optional
+from collections.abc import Callable
 from .parser import ToolDefinition, parse_tool_from_file
 
 
 class ToolLoader:
     """工具加载器"""
 
-    def __init__(self, tools_dirs: List[str] = None):
+    def __init__(self, tools_dirs: list[str] = None):
         self.tools_dirs = tools_dirs or []
-        self.tools: Dict[str, ToolDefinition] = {}
-        self._functions: Dict[str, Callable] = {}
-        self._modules: Dict[str, Any] = {}
+        self.tools: dict[str, ToolDefinition] = {}
+        self._functions: dict[str, Callable] = {}
+        self._modules: dict[str, Any] = {}
 
     def add_tools_dir(self, directory: str) -> None:
         """添加工具目录"""
@@ -76,7 +77,7 @@ class ToolLoader:
             print(f"[ToolLoader] 加载工具失败 {filepath}: {e}")
             return False
 
-    def get_tool_definitions(self) -> List[Dict[str, Any]]:
+    def get_tool_definitions(self) -> list[dict[str, Any]]:
         """获取所有工具的 Ollama 格式定义"""
         return [tool.to_ollama_format() for tool in self.tools.values()]
 
@@ -84,7 +85,7 @@ class ToolLoader:
         """获取工具定义"""
         return self.tools.get(name)
 
-    def execute(self, name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
+    def execute(self, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
         """
         执行工具调用
         返回标准格式的结果字典

@@ -6,7 +6,7 @@
 import os
 import sys
 import json
-from typing import Optional, List
+from typing import Optional
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -41,7 +41,7 @@ class ChatWorker(QThread):
     finished_signal = pyqtSignal()
     error_signal = pyqtSignal(str)
 
-    def __init__(self, agent: AgentLoop, text: str, images: List[str] = None):
+    def __init__(self, agent: AgentLoop, text: str, images: list[str] = None):
         super().__init__()
         self.agent = agent
         self.text = text
@@ -321,7 +321,7 @@ class MainWindow(QMainWindow):
         self.tool_loader = ToolLoader()
         self.agent = None
         self.current_model = ""
-        self.image_attachments: List[str] = []
+        self.image_attachments: list[str] = []
         self.chat_worker: Optional[ChatWorker] = None
 
         self._setup_ui()

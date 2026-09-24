@@ -9,11 +9,11 @@ from .agent import AgentLoop
 from .tools.loader import ToolLoader
 
 __all__ = [
-    "Backend",
-    "OllamaBackend",
-    "LlamaCppBackend",
-    "Conversation",
-    "Message",
     "AgentLoop",
+    "Backend",
+    "Conversation",
+    "LlamaCppBackend",
+    "Message",
+    "OllamaBackend",
     "ToolLoader",
 ]
