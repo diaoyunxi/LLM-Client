@@ -37,8 +37,10 @@ llm_client/
 │   └── gui.py              # PyQt6 图形界面
 ├── tools/                  # 外置工具目录（示例工具存放处）
 │   ├── calculator.py       # 计算器工具
-│   ├── weather.py          # 天气查询工具（模拟）
-│   └── datetime_tool.py    # 日期时间工具
+│   ├── datetime_tool.py    # 日期时间工具
+│   ├── shell_exec.py       # Shell 命令执行工具（白名单模式）
+│   ├── web_search.py       # 网络搜索工具
+│   └── ip_query.py         # IP/域名地理位置查询工具
 ├── main.py                 # 统一入口
 ├── requirements.txt        # 依赖
 └── README.md               # 本文件
