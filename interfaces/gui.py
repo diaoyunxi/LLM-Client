@@ -647,9 +647,8 @@ class MainWindow(QMainWindow):
             self.agent.temperature = self.temp_spin.value()
             self.agent.think = self.think_checkbox.isChecked()
 
-        # 添加用户消息
-        self.conversation.add_message("user", text, images=self.image_attachments)
-        self.add_message_to_ui(self.conversation.messages[-1])
+        # 显示用户气泡（仅用于展示；agent.run 内部会把用户消息写入对话历史，此处不再重复添加，避免历史重复）
+        self.add_message_to_ui(Message(role="user", content=text, images=list(self.image_attachments)))
 
         # 更新历史
         self.update_history_list()

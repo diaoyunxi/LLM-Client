@@ -361,9 +361,9 @@ class LLMClientTUI(App):
                 think=True,
             )
 
-        # 添加用户消息到显示
-        self.conversation.add_message("user", text, images=self.image_attachments)
-        self.add_message_widget(self.conversation.messages[-1])
+        # 显示用户气泡（仅用于展示；agent.run 内部会把用户消息写入对话历史，此处不再重复添加，避免历史重复）
+        user_msg = Message(role="user", content=text, images=list(self.image_attachments))
+        self.add_message_widget(user_msg)
 
         # 清除欢迎消息
         welcome = self.query_one("#welcome-msg", Static)
@@ -377,9 +377,8 @@ class LLMClientTUI(App):
         """聊天工作线程"""
         messages_scroll = self.query_one("#messages-scroll", VerticalScroll)
 
-        # 创建 AI 消息占位
+        # 仅作为展示用的占位消息；最终 assistant 消息由 agent.run 写入对话历史，此处不再重复 append
         ai_msg = Message(role="assistant", content="", thinking="")
-        self.conversation.messages.append(ai_msg)
         msg_widget = ChatMessageWidget(ai_msg)
         await messages_scroll.mount(msg_widget)
 
