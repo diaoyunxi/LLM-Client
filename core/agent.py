@@ -194,7 +194,14 @@ class AgentLoop:
                     result = self.tool_loader.execute(tc["name"], tc["arguments"])
 
                     if result["success"]:
-                        result_text = json.dumps(result["output"], ensure_ascii=False) if not isinstance(result["output"], str) else result["output"]
+                        output = result["output"]
+                        if isinstance(output, str):
+                            result_text = output
+                        else:
+                            try:
+                                result_text = json.dumps(output, ensure_ascii=False, default=str)
+                            except (TypeError, ValueError):
+                                result_text = str(output)
                         yield StreamChunk(content=f"[工具结果] {result_text}\n")
                         self._notify_step(AgentStep(
                             step_type="tool_result",
