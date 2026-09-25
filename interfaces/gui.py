@@ -5,12 +5,10 @@
 
 import os
 import sys
-import json
-from typing import Optional, List
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core.backend import OllamaBackend, LlamaCppBackend, ModelInfo, StreamChunk
+from core.backend import OllamaBackend, LlamaCppBackend
 from core.conversation import Conversation, Message
 from core.agent import AgentLoop
 from core.tools.loader import ToolLoader
@@ -41,7 +39,7 @@ class ChatWorker(QThread):
     finished_signal = pyqtSignal()
     error_signal = pyqtSignal(str)
 
-    def __init__(self, agent: AgentLoop, text: str, images: List[str] = None):
+    def __init__(self, agent: AgentLoop, text: str, images: list[str] = None):
         super().__init__()
         self.agent = agent
         self.text = text
@@ -321,8 +319,8 @@ class MainWindow(QMainWindow):
         self.tool_loader = ToolLoader()
         self.agent = None
         self.current_model = ""
-        self.image_attachments: List[str] = []
-        self.chat_worker: Optional[ChatWorker] = None
+        self.image_attachments: list[str] = []
+        self.chat_worker: ChatWorker | None = None
 
         self._setup_ui()
         self._setup_menu()
