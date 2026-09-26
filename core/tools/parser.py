@@ -82,15 +82,15 @@ class ToolDefinition:
                 # 基础类型检查
                 if param.param_type == "string" and not isinstance(value, str):
                     return False, f"参数 {name} 应为字符串"
-                elif param.param_type == "integer" and not isinstance(value, int):
+                if param.param_type == "integer" and not isinstance(value, int):
                     return False, f"参数 {name} 应为整数"
-                elif param.param_type == "number" and not isinstance(value, (int, float)):
+                if param.param_type == "number" and not isinstance(value, (int, float)):
                     return False, f"参数 {name} 应为数字"
-                elif param.param_type == "boolean" and not isinstance(value, bool):
+                if param.param_type == "boolean" and not isinstance(value, bool):
                     return False, f"参数 {name} 应为布尔值"
-                elif param.param_type == "array" and not isinstance(value, list):
+                if param.param_type == "array" and not isinstance(value, list):
                     return False, f"参数 {name} 应为数组"
-                elif param.param_type == "object" and not isinstance(value, dict):
+                if param.param_type == "object" and not isinstance(value, dict):
                     return False, f"参数 {name} 应为对象"
         return True, ""
 

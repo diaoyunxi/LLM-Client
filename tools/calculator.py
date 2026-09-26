@@ -25,37 +25,35 @@ def run(expression: str):
         def _eval(node):
             if isinstance(node, ast.Expression):
                 return _eval(node.body)
-            elif isinstance(node, ast.Constant):
+            if isinstance(node, ast.Constant):
                 return node.value
-            elif isinstance(node, ast.Num):  # Python < 3.8
+            if isinstance(node, ast.Num):  # Python < 3.8
                 return node.n
-            elif isinstance(node, ast.BinOp):
+            if isinstance(node, ast.BinOp):
                 left = _eval(node.left)
                 right = _eval(node.right)
                 if isinstance(node.op, ast.Add):
                     return left + right
-                elif isinstance(node.op, ast.Sub):
+                if isinstance(node.op, ast.Sub):
                     return left - right
-                elif isinstance(node.op, ast.Mult):
+                if isinstance(node.op, ast.Mult):
                     return left * right
-                elif isinstance(node.op, ast.Div):
+                if isinstance(node.op, ast.Div):
                     return left / right
-                elif isinstance(node.op, ast.Pow):
+                if isinstance(node.op, ast.Pow):
                     return left ** right
-                elif isinstance(node.op, ast.Mod):
+                if isinstance(node.op, ast.Mod):
                     return left % right
-                elif isinstance(node.op, ast.FloorDiv):
+                if isinstance(node.op, ast.FloorDiv):
                     return left // right
-                else:
-                    raise ValueError(f"不支持的操作: {type(node.op).__name__}")
+                raise ValueError(f"不支持的操作: {type(node.op).__name__}")
             elif isinstance(node, ast.UnaryOp):
                 operand = _eval(node.operand)
                 if isinstance(node.op, ast.USub):
                     return -operand
-                elif isinstance(node.op, ast.UAdd):
+                if isinstance(node.op, ast.UAdd):
                     return +operand
-                else:
-                    raise ValueError(f"不支持的一元操作: {type(node.op).__name__}")
+                raise ValueError(f"不支持的一元操作: {type(node.op).__name__}")
             elif isinstance(node, ast.Call):
                 # 允许调用部分安全函数
                 func_name = ""
