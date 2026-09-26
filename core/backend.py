@@ -187,10 +187,10 @@ class OllamaBackend(Backend):
             if header_bytes.startswith(b'\x89PNG'):
                 return "image/png"
             # GIF: 47 49 46 38
-            elif header_bytes.startswith(b'GIF8'):
+            if header_bytes.startswith(b'GIF8'):
                 return "image/gif"
             # WebP: 52 49 46 46 ... 57 45 42 50
-            elif header_bytes.startswith(b'RIFF') and len(header_bytes) >= 8:
+            if header_bytes.startswith(b'RIFF') and len(header_bytes) >= 8:
                 full_header = base64.b64decode(img_base64[:24])
                 if full_header[8:12] == b'WEBP':
                     return "image/webp"
@@ -331,10 +331,10 @@ class OpenAIBackend(Backend):
             if header_bytes.startswith(b'\x89PNG'):
                 return "image/png"
             # GIF: 47 49 46 38
-            elif header_bytes.startswith(b'GIF8'):
+            if header_bytes.startswith(b'GIF8'):
                 return "image/gif"
             # WebP: 52 49 46 46 ... 57 45 42 50
-            elif header_bytes.startswith(b'RIFF') and len(header_bytes) >= 8:
+            if header_bytes.startswith(b'RIFF') and len(header_bytes) >= 8:
                 full_header = base64.b64decode(img_base64[:24])
                 if full_header[8:12] == b'WEBP':
                     return "image/webp"
@@ -535,10 +535,10 @@ class LlamaCppBackend(Backend):
             if header_bytes.startswith(b'\x89PNG'):
                 return "image/png"
             # GIF: 47 49 46 38
-            elif header_bytes.startswith(b'GIF8'):
+            if header_bytes.startswith(b'GIF8'):
                 return "image/gif"
             # WebP: 52 49 46 46 ... 57 45 42 50
-            elif header_bytes.startswith(b'RIFF') and len(header_bytes) >= 8:
+            if header_bytes.startswith(b'RIFF') and len(header_bytes) >= 8:
                 full_header = base64.b64decode(img_base64[:24])
                 if full_header[8:12] == b'WEBP':
                     return "image/webp"
