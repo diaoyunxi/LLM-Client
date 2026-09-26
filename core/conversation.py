@@ -177,6 +177,9 @@ class Conversation:
             metadata=data.get("metadata", {}),
         )
         for m in data.get("messages", []):
+            # 跳过格式不完整的消息，防止单条损坏消息导致整个对话加载失败
+            if not isinstance(m, dict) or "role" not in m or "content" not in m:
+                continue
             conv.messages.append(Message(
                 role=m["role"],
                 content=m["content"],
