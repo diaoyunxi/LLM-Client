@@ -10,7 +10,7 @@ import logging
 import uuid
 import requests
 from abc import ABC, abstractmethod
-from typing import Generator, List, Dict, Any, Optional, Union
+from typing import Generator, List, Dict, Any
 from dataclasses import dataclass, field
 import ollama
 
