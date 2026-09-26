@@ -93,7 +93,7 @@ class Backend(ABC):
                     time.sleep(delay)
                 else:
                     logger.warning("请求失败, 已达最大重试次数 %d: %s", self.MAX_RETRIES, e)
-            except Exception as e:
+            except Exception:
                 # 非网络异常, 不重试直接抛出
                 raise
         raise last_exc
@@ -625,7 +625,7 @@ class LlamaCppBackend(Backend):
                                 yield StreamChunk(content=content)
                         except json.JSONDecodeError:
                             pass
-        except Exception as e:
+        except Exception:
             # 降级到 /completion 接口
             yield from self._fallback_completion(messages, temperature, **kwargs)
 

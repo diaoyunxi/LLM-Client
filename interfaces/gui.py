@@ -779,7 +779,7 @@ class MainWindow(QMainWindow):
     def update_history_list(self):
         """更新历史列表"""
         self.history_list.clear()
-        for i, msg in enumerate(self.conversation.messages):
+        for _i, msg in enumerate(self.conversation.messages):
             if msg.role in ("user", "assistant"):
                 preview = msg.content[:30] + "..." if len(msg.content) > 30 else msg.content
                 role = "用户" if msg.role == "user" else "AI"
