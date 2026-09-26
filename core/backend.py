@@ -143,7 +143,8 @@ class Backend(ABC):
         # 路径校验: 限制只能读取用户目录下的文件
         home_dir = os.path.expanduser("~")
         real_path = os.path.realpath(image_path)
-        if not real_path.startswith(home_dir):
+        # 使用 os.sep 防止前缀绕过: /home/user.evil 不应匹配 /home/user
+        if real_path != home_dir and not real_path.startswith(home_dir + os.sep):
             raise PermissionError(f"安全限制: 仅允许读取用户目录 ({home_dir}) 下的文件")
         with open(image_path, "rb") as f:
             return base64.b64encode(f.read()).decode("utf-8")
