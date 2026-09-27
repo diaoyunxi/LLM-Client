@@ -105,7 +105,16 @@ class AgentLoop:
                 args = {"content": match.group(2).strip()}
             tool_calls.append({"name": tool_name, "arguments": args})
 
-        return tool_calls
+        # 去重：多种正则模式可能匹配同一段文本，防止工具被重复调用
+        seen = set()
+        deduped = []
+        for tc in tool_calls:
+            key = (tc.get("name", ""), json.dumps(tc.get("arguments", {}), sort_keys=True, ensure_ascii=False))
+            if key not in seen:
+                seen.add(key)
+                deduped.append(tc)
+
+        return deduped
 
     def _normalize_tool_call(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """规范化工具调用格式"""
