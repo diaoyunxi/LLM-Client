@@ -131,6 +131,10 @@ class ToolLoader:
     def unload_tool(self, name: str) -> bool:
         """卸载工具"""
         if name in self.tools:
+            # 清理 sys.modules 中残留的模块引用，防止内存泄漏和重载时拿到旧代码
+            for key in list(sys.modules):
+                if key.startswith(f"tool_{name}_"):
+                    del sys.modules[key]
             self.tools.pop(name, None)
             self._functions.pop(name, None)
             self._modules.pop(name, None)
