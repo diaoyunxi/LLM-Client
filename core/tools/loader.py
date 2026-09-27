@@ -84,10 +84,16 @@ class ToolLoader:
         """获取工具定义"""
         return self.tools.get(name)
 
+    # 工具执行超时时间（秒），防止单个工具阻塞整个智能体循环
+    EXECUTE_TIMEOUT = 120
+
     def execute(self, name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """
         执行工具调用
         返回标准格式的结果字典
+
+        安全措施：使用线程超时机制，防止工具函数无限阻塞。
+        超时时间由 EXECUTE_TIMEOUT 类属性控制（默认 120 秒）。
         """
         tool = self.tools.get(name)
         if not tool:
@@ -114,19 +120,40 @@ class ToolLoader:
                 "output": None,
             }
 
-        try:
-            result = func(**arguments)
-            return {
-                "success": True,
-                "error": None,
-                "output": result,
-            }
-        except Exception as e:
+        # 使用线程超时机制执行工具，防止无限阻塞
+        import threading
+        result_holder = {"result": None, "error": None}
+
+        def _run():
+            try:
+                result_holder["result"] = func(**arguments)
+            except Exception as e:
+                result_holder["error"] = e
+
+        thread = threading.Thread(target=_run, daemon=True)
+        thread.start()
+        thread.join(timeout=self.EXECUTE_TIMEOUT)
+
+        if thread.is_alive():
+            # 超时：线程仍在运行，不等待直接返回错误
             return {
                 "success": False,
-                "error": str(e),
+                "error": f"工具 '{name}' 执行超时（>{self.EXECUTE_TIMEOUT}秒）",
                 "output": None,
             }
+
+        if result_holder["error"] is not None:
+            return {
+                "success": False,
+                "error": str(result_holder["error"]),
+                "output": None,
+            }
+
+        return {
+            "success": True,
+            "error": None,
+            "output": result_holder["result"],
+        }
 
     def unload_tool(self, name: str) -> bool:
         """卸载工具"""
