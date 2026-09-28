@@ -22,7 +22,7 @@ def run(format: str = "iso", timezone: str = "Asia/Shanghai"):
     """
     获取当前日期时间
     """
-    now = datetime.now()
+    now = datetime.now(timezone.utc)
 
     # 处理时区（简化处理，实际应用可用 pytz 或 zoneinfo）
     tz_offsets = {
