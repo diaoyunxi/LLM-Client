@@ -53,9 +53,9 @@ def _search_duckduckgo(query: str, max_results: int = 5) -> list:
         )
 
         if not result_blocks:
-            # 备用匹配模式
+            # 备用匹配模式：限制匹配范围在单个 result 块内，防止跨块误匹配
             result_blocks = re.findall(
-                r'<a[^>]*class="result__a"[^>]*>(.*?)</a>.*?'
+                r'<a[^>]*class="result__a"[^>]*>(.*?)</a>[^<]{0,500}'
                 r'<a[^>]*class="result__snippet"[^>]*>(.*?)</a>',
                 html,
                 re.DOTALL
@@ -69,6 +69,8 @@ def _search_duckduckgo(query: str, max_results: int = 5) -> list:
                         "snippet": clean_snippet,
                         "url": "",
                     })
+            if not result_blocks:
+                logger.warning("DuckDuckGo HTML 结构可能已变更，主正则与备用正则均未匹配到结果")
         else:
             for link, title, snippet in result_blocks[:max_results]:
                 clean_title = re.sub(r'<[^>]+>', '', title).strip()
