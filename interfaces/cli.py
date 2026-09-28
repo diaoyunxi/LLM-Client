@@ -56,7 +56,8 @@ def select_model(backend) -> Optional[str]:
 
 def run_cli(backend: str = None, host: str = None, port: int = None,
             model: str = None, tools_dir: str = None, system: str = None,
-            image: str = None, think: bool = False):
+            image: str = None, think: bool = False,
+            temperature: float = 0.7, max_iterations: int = 10):
     """
     启动 CLI 界面
 
@@ -86,6 +87,10 @@ def run_cli(backend: str = None, host: str = None, port: int = None,
         parser.add_argument("--image", default="", help="上传图片路径（多模态）")
         parser.add_argument("--think", action="store_true", default=False,
                             help="启用模型思考过程显示（需模型支持，如 DeepSeek-R1）")
+        parser.add_argument("--temperature", type=float, default=0.7,
+                            help="生成温度 (默认: 0.7)")
+        parser.add_argument("--max-iterations", type=int, default=10,
+                            help="智能体最大迭代次数 (默认: 10)")
         args = parser.parse_args()
     else:
         # 使用直接传入的参数
@@ -99,6 +104,8 @@ def run_cli(backend: str = None, host: str = None, port: int = None,
             system=system or "",
             image=image or "",
             think=think,
+            temperature=temperature,
+            max_iterations=max_iterations,
         )
 
     print_banner()
@@ -145,7 +152,8 @@ def run_cli(backend: str = None, host: str = None, port: int = None,
         conversation=conversation,
         tool_loader=tool_loader,
         model=model,
-        max_iterations=10,
+        max_iterations=args.max_iterations,
+        temperature=args.temperature,
         think=args.think,
     )
 

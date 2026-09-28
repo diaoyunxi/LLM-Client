@@ -115,6 +115,8 @@ def main():
             system=args.system,
             image=args.image,
             think=args.think,
+            temperature=args.temperature,
+            max_iterations=args.max_iterations,
         )
 
     elif args.mode == "tui":
