@@ -10,7 +10,7 @@ import logging
 import uuid
 import requests
 from abc import ABC, abstractmethod
-from typing import Generator, List, Dict, Any, Optional, Union
+from typing import Generator, List, Dict, Any, Optional
 from dataclasses import dataclass, field
 import ollama
 
@@ -93,7 +93,7 @@ class Backend(ABC):
                     time.sleep(delay)
                 else:
                     logger.warning("请求失败, 已达最大重试次数 %d: %s", self.MAX_RETRIES, e)
-            except Exception as e:
+            except Exception:
                 # 非网络异常, 不重试直接抛出
                 raise
         raise last_exc
