@@ -13,6 +13,19 @@ import operator
 import ast
 
 
+# 幂运算安全上限
+_MAX_EXPONENT = 1000
+
+
+def _safe_pow(base, exp, mod=None):
+    """带指数上限的幂运算，防止大指数导致资源耗尽"""
+    if isinstance(exp, (int, float)) and abs(exp) > _MAX_EXPONENT:
+        raise ValueError(f"指数 {exp} 超出安全范围（最大 {_MAX_EXPONENT}）")
+    if mod is not None:
+        return pow(base, exp, mod)
+    return pow(base, exp)
+
+
 def run(expression: str):
     """
     安全地计算数学表达式
@@ -41,6 +54,9 @@ def run(expression: str):
                 elif isinstance(node.op, ast.Div):
                     return left / right
                 elif isinstance(node.op, ast.Pow):
+                    # 防止大指数导致资源耗尽 (CWE-400)
+                    if isinstance(right, (int, float)) and abs(right) > 1000:
+                        raise ValueError(f"指数 {right} 超出安全范围（最大 1000）")
                     return left ** right
                 elif isinstance(node.op, ast.Mod):
                     return left % right
@@ -67,7 +83,7 @@ def run(expression: str):
                     'max': max,
                     'min': min,
                     'sum': sum,
-                    'pow': pow,
+                    'pow': lambda base, exp, mod=None: _safe_pow(base, exp, mod),
                     'sqrt': math.sqrt,
                     'sin': math.sin,
                     'cos': math.cos,
