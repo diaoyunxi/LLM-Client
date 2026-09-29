@@ -66,6 +66,16 @@ ALLOWED_COMMANDS = {
     "netstat", "ss", "lscpu", "lsmem", "lsblk", "mount", "umount",
 }
 
+# 允许的工作目录白名单 (working_dir 必须在这些目录下)
+# 防止 AI Agent 通过设置 working_dir 为敏感目录（如 /etc、/root）执行命令
+import tempfile as _tempfile
+
+_ALLOWED_WORKING_DIRS = [
+    os.getcwd(),
+    os.path.expanduser("~"),
+    _tempfile.gettempdir(),
+]
+
 # 命令最大长度限制 (字符)
 MAX_COMMAND_LENGTH = 1000
 
@@ -157,6 +167,20 @@ def run(command: str, timeout: int = 30, working_dir: str = ".", max_output: int
             "exit_code": -1,
         }
 
+    # 校验 working_dir 是否在白名单范围内 (CWE-22: Path Traversal)
+    if working_dir and working_dir != ".":
+        real_dir = os.path.realpath(working_dir)
+        dir_allowed = any(
+            real_dir.startswith(os.path.realpath(d) + os.sep) or real_dir == os.path.realpath(d)
+            for d in _ALLOWED_WORKING_DIRS
+        )
+        if not dir_allowed:
+            return {
+                "success": False,
+                "error": f"安全限制: 工作目录 '{working_dir}' 不在允许范围内",
+                "output": "",
+                "exit_code": -1,
+            }
     cwd = working_dir if os.path.isdir(working_dir) else "."
     env = {**os.environ, "TERM": "dumb"}
 
