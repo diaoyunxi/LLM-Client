@@ -145,7 +145,7 @@ class Backend(ABC):
         real_path = os.path.realpath(image_path)
         if not real_path.startswith(home_dir):
             raise PermissionError(f"安全限制: 仅允许读取用户目录 ({home_dir}) 下的文件")
-        with open(image_path, "rb") as f:
+        with open(real_path, "rb") as f:
             return base64.b64encode(f.read()).decode("utf-8")
 
 
