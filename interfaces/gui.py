@@ -27,8 +27,10 @@ try:
     from PyQt6.QtCore import Qt, QThread, pyqtSignal, QSize, QTimer
     from PyQt6.QtGui import QAction, QFont, QIcon, QPixmap, QImage
 except ImportError:
+    _PYQT6_AVAILABLE = False
     print("请先安装 PyQt6: pip install PyQt6")
-    sys.exit(1)
+else:
+    _PYQT6_AVAILABLE = True
 
 
 class ChatWorker(QThread):
@@ -802,8 +804,8 @@ def run_gui():
 
     window = MainWindow()
     window.show()
-    sys.exit(app.exec())
+    return app.exec()
 
 
 if __name__ == "__main__":
-    run_gui()
+    sys.exit(run_gui())
