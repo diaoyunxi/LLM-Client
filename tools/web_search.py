@@ -53,22 +53,51 @@ def _search_duckduckgo(query: str, max_results: int = 5) -> list:
         )
 
         if not result_blocks:
-            # 备用匹配模式
+            # 备用匹配模式：提取 href、title 和 snippet
             result_blocks = re.findall(
-                r'<a[^>]*class="result__a"[^>]*>(.*?)</a>.*?'
+                r'<a[^>]*class="result__a"[^>]*href="([^"]*)"[^>]*>(.*?)</a>.*?'
                 r'<a[^>]*class="result__snippet"[^>]*>(.*?)</a>',
                 html,
                 re.DOTALL
             )
-            for title, snippet in result_blocks[:max_results]:
-                clean_title = re.sub(r'<[^>]+>', '', title).strip()
-                clean_snippet = re.sub(r'<[^>]+>', '', snippet).strip()
-                if clean_title:
-                    results.append({
-                        "title": clean_title,
-                        "snippet": clean_snippet,
-                        "url": "",
-                    })
+            if not result_blocks:
+                # 二次备用：不依赖 href 顺序，从整个 <a> 标签中提取
+                result_blocks_2 = re.findall(
+                    r'<a[^>]*class="result__a"[^>]*>(.*?)</a>.*?'
+                    r'<a[^>]*class="result__snippet"[^>]*>(.*?)</a>',
+                    html,
+                    re.DOTALL
+                )
+                for title, snippet in result_blocks_2[:max_results]:
+                    clean_title = re.sub(r'<[^>]+>', '', title).strip()
+                    clean_snippet = re.sub(r'<[^>]+>', '', snippet).strip()
+                    # 从 title 原始 HTML 中提取 href
+                    href_match = re.search(r'href="([^"]*)"', title)
+                    url = ""
+                    if href_match:
+                        link_val = href_match.group(1)
+                        uddg_match = re.search(r'uddg=([^&]+)', link_val)
+                        url = unquote(uddg_match.group(1)) if uddg_match else link_val
+                    if clean_title:
+                        results.append({
+                            "title": clean_title,
+                            "snippet": clean_snippet,
+                            "url": url,
+                        })
+            else:
+                for link, title, snippet in result_blocks[:max_results]:
+                    clean_title = re.sub(r'<[^>]+>', '', title).strip()
+                    clean_snippet = re.sub(r'<[^>]+>', '', snippet).strip()
+                    actual_url = ""
+                    match = re.search(r'uddg=([^&]+)', link)
+                    if match:
+                        actual_url = unquote(match.group(1))
+                    if clean_title:
+                        results.append({
+                            "title": clean_title,
+                            "snippet": clean_snippet,
+                            "url": actual_url,
+                        })
         else:
             for link, title, snippet in result_blocks[:max_results]:
                 clean_title = re.sub(r'<[^>]+>', '', title).strip()
