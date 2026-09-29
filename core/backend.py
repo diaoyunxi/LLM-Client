@@ -448,7 +448,7 @@ class OpenAIBackend(Backend):
                             if thinking_text or content_text:
                                 yield StreamChunk(thinking=thinking_text, content=content_text)
                         except json.JSONDecodeError:
-                            pass
+                            pass  # noqa: S110 - expected for streaming JSON chunk parse
         except Exception as e:
             logger.warning("OpenAI API 对话失败：%s", e)
             yield StreamChunk(content=f"\n[错误] {GENERIC_ERROR_MSG}\n")
@@ -624,7 +624,7 @@ class LlamaCppBackend(Backend):
                             if content:
                                 yield StreamChunk(content=content)
                         except json.JSONDecodeError:
-                            pass
+                            pass  # noqa: S110 - expected for streaming JSON chunk parse
         except Exception as e:
             # 降级到 /completion 接口
             yield from self._fallback_completion(messages, temperature, **kwargs)
@@ -657,7 +657,7 @@ class LlamaCppBackend(Backend):
                             if content:
                                 yield StreamChunk(content=content)
                         except json.JSONDecodeError:
-                            pass
+                            pass  # noqa: S110 - expected for streaming JSON chunk parse
                     else:
                         try:
                             chunk = json.loads(line)
@@ -665,7 +665,7 @@ class LlamaCppBackend(Backend):
                             if content:
                                 yield StreamChunk(content=content)
                         except json.JSONDecodeError:
-                            pass
+                            pass  # noqa: S110 - expected for streaming JSON chunk parse
         except Exception as e:
             # 异常详情记录到日志, 向用户返回通用错误消息
             logger.warning("llama.cpp 连接失败: %s", e)
