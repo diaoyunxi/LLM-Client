@@ -86,14 +86,27 @@ class AgentLoop:
             except json.JSONDecodeError:
                 pass
 
-        # 尝试匹配内联 JSON 对象
-        inline_json_pattern = r'\{\s*"(?:tool|name)"\s*:\s*"[^"]+"[^}]*\}'
-        for match in re.finditer(inline_json_pattern, content):
-            try:
-                data = json.loads(match.group(0))
-                tool_calls.append(self._normalize_tool_call(data))
-            except json.JSONDecodeError:
-                pass
+        # 尝试匹配内联 JSON 对象（支持嵌套大括号，如 parameters: {...}）
+        # 使用大括号计数代替 [^}]*，以正确处理嵌套参数对象
+        for m in re.finditer(r'\{\s*"(?:tool|name)"\s*:', content):
+            start = m.start()
+            depth = 0
+            i = start
+            while i < len(content):
+                if content[i] == '{':
+                    depth += 1
+                elif content[i] == '}':
+                    depth -= 1
+                    if depth == 0:
+                        candidate = content[start:i + 1]
+                        try:
+                            data = json.loads(candidate)
+                            if "tool" in data or "name" in data:
+                                tool_calls.append(self._normalize_tool_call(data))
+                        except json.JSONDecodeError:
+                            pass
+                        break
+                i += 1
 
         # 尝试匹配 XML 格式
         xml_pattern = r'<tool\s+name="([^"]+)"[^>]*>(.*?)</tool>'
