@@ -101,7 +101,7 @@ class Conversation:
         recent = self.messages[-max_messages:] if len(self.messages) > max_messages else self.messages
         for msg in recent:
             # 跳过已经被 system_prompt 覆盖的原始 system 消息
-            if msg.role == "system" and self.system_prompt and msg == self.messages[0]:
+            if msg.role == "system" and self.system_prompt and msg is self.messages[0]:
                 continue
             result.append(msg.to_chat_message())
         return result
