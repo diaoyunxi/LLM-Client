@@ -23,6 +23,27 @@ from urllib.parse import quote_plus, unquote
 logger = logging.getLogger("web_search")
 
 
+# SSRF 防护：禁止访问私有/内部地址 (CWE-918)
+_BLOCKED_HOSTS = {"localhost", "127.0.0.1", "0.0.0.0", "[::1]", "169.254.169.254"}
+_BLOCKED_PREFIXES = ("10.", "172.16.", "172.17.", "172.18.", "172.19.", "172.20.",
+                     "172.21.", "172.22.", "172.23.", "172.24.", "172.25.",
+                     "172.26.", "172.27.", "172.28.", "172.29.", "172.30.",
+                     "172.31.", "192.168.", "100.64.")
+
+def _is_safe_url(url: str) -> bool:
+    """校验 URL 是否指向公网地址，防止 SSRF 攻击 (CWE-918)"""
+    from urllib.parse import urlparse
+    try:
+        parsed = urlparse(url)
+        host = (parsed.hostname or "").lower()
+        if host in _BLOCKED_HOSTS:
+            return False
+        if any(host.startswith(p) for p in _BLOCKED_PREFIXES):
+            return False
+        return True
+    except Exception:
+        return False
+
 def _search_duckduckgo(query: str, max_results: int = 5) -> list:
     """
     通过 DuckDuckGo HTML 版本获取搜索结果
@@ -39,6 +60,9 @@ def _search_duckduckgo(query: str, max_results: int = 5) -> list:
     url = f"https://html.duckduckgo.com/html/?q={quote_plus(query)}"
 
     try:
+        if not _is_safe_url(url):
+            logger.warning("SSRF 防护：拒绝访问内部地址: %s", url)
+            return []
         resp = requests.get(url, headers=headers, timeout=15, verify=True)
         resp.raise_for_status()
         html = resp.text
