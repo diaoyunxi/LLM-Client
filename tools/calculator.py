@@ -32,6 +32,11 @@ def run(expression: str):
             elif isinstance(node, ast.BinOp):
                 left = _eval(node.left)
                 right = _eval(node.right)
+                # 防止超大数值导致 CPU 耗尽（DoS）
+                _MAX_OPERAND = 10**15
+                if isinstance(left, (int, float)) and isinstance(right, (int, float)):
+                    if abs(left) > _MAX_OPERAND or abs(right) > _MAX_OPERAND:
+                        raise ValueError(f"操作数过大（上限 {_MAX_OPERAND}），拒绝计算")
                 if isinstance(node.op, ast.Add):
                     return left + right
                 elif isinstance(node.op, ast.Sub):
@@ -39,12 +44,23 @@ def run(expression: str):
                 elif isinstance(node.op, ast.Mult):
                     return left * right
                 elif isinstance(node.op, ast.Div):
+                    if right == 0:
+                        raise ZeroDivisionError("除数不能为零")
                     return left / right
                 elif isinstance(node.op, ast.Pow):
+                    # 幂运算额外限制：底数和指数都不能过大
+                    if isinstance(left, (int, float)) and abs(left) > 1000:
+                        raise ValueError("幂运算底数不能超过 1000")
+                    if isinstance(right, (int, float)) and abs(right) > 1000:
+                        raise ValueError("幂运算指数不能超过 1000")
                     return left ** right
                 elif isinstance(node.op, ast.Mod):
+                    if right == 0:
+                        raise ZeroDivisionError("取模除数不能为零")
                     return left % right
                 elif isinstance(node.op, ast.FloorDiv):
+                    if right == 0:
+                        raise ZeroDivisionError("整除除数不能为零")
                     return left // right
                 else:
                     raise ValueError(f"不支持的操作: {type(node.op).__name__}")
@@ -61,13 +77,19 @@ def run(expression: str):
                 func_name = ""
                 if isinstance(node.func, ast.Name):
                     func_name = node.func.id
+                def _safe_pow(*args):
+                    if len(args) >= 2 and isinstance(args[0], (int, float)) and isinstance(args[1], (int, float)):
+                        if abs(args[0]) > 1000 or abs(args[1]) > 1000:
+                            raise ValueError("pow() 参数不能超过 1000")
+                    return pow(*args)
+
                 allowed_funcs = {
                     'abs': abs,
                     'round': round,
                     'max': max,
                     'min': min,
                     'sum': sum,
-                    'pow': pow,
+                    'pow': _safe_pow,
                     'sqrt': math.sqrt,
                     'sin': math.sin,
                     'cos': math.cos,
