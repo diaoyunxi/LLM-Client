@@ -171,7 +171,10 @@ def parse_tool_from_file(filepath: str) -> Optional[ToolDefinition]:
                         current_param.default = prop_value
                     elif prop_name == "enum":
                         try:
-                            current_param.enum = json.loads(prop_value)
+                            try:
+                                    current_param.enum = json.loads(prop_value)
+                                except (json.JSONDecodeError, ValueError):
+                                    current_param.enum = [v.strip().strip('"\'') for v in prop_value.strip('[]').split(',')]
                         except:
                             current_param.enum = [v.strip() for v in prop_value.split(',')]
 
