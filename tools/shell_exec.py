@@ -59,7 +59,7 @@ ALLOWED_COMMANDS = {
     "python", "python3", "pip", "pip3", "node", "npm", "git", "go",
     "java", "javac", "mvn", "gradle", "cargo", "rustc", "make", "cmake",
     "curl", "wget", "ping", "nslookup", "dig", "ifconfig", "ip",
-    "mkdir", "touch", "cp", "mv", "ln", "chmod", "chown", "tar", "zip",
+    "mkdir", "touch", "cp", "mv", "ln", "tar", "zip",  # 移除 chmod/chown 防止权限滥用 (CWE-732)
     "unzip", "gzip", "gunzip", "sed", "awk", "xargs", "basename",
     "dirname", "realpath", "readlink", "tee", "seq", "yes", "test",
     "expr", "bc", "cal", "uptime", "w", "last", "dmesg", "lsof",
