@@ -15,7 +15,6 @@ TOOL_PARAMETERS:
 
 import requests
 import re
-import json
 import logging
 from urllib.parse import quote_plus, unquote
 
