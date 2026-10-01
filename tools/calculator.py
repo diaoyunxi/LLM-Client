@@ -41,6 +41,9 @@ def run(expression: str):
                 elif isinstance(node.op, ast.Div):
                     return left / right
                 elif isinstance(node.op, ast.Pow):
+                    # 防止 CPU 耗尽攻击：限制幂运算的操作数上限
+                    if abs(left) > 1000 or abs(right) > 1000:
+                        raise ValueError("幂运算操作数超出安全上限 (|operand| <= 1000)")
                     return left ** right
                 elif isinstance(node.op, ast.Mod):
                     return left % right
@@ -83,6 +86,13 @@ def run(expression: str):
                 if func_name not in allowed_funcs:
                     raise ValueError(f"不允许调用的函数: {func_name}")
                 args = [_eval(arg) for arg in node.args]
+                # 对 pow/exp 函数添加操作数上限，防止 CPU 耗尽
+                if func_name == 'pow' and len(args) >= 2:
+                    if abs(args[0]) > 1000 or abs(args[1]) > 1000:
+                        raise ValueError("pow() 操作数超出安全上限 (|operand| <= 1000)")
+                elif func_name == 'exp' and len(args) >= 1:
+                    if abs(args[0]) > 700:
+                        raise ValueError("exp() 参数超出安全上限")
                 return allowed_funcs[func_name](*args)
             elif isinstance(node, ast.Name):
                 allowed_names = {
