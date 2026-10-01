@@ -13,12 +13,11 @@ TOOL_PARAMETERS:
         default: 5
 """
 
-import requests
-import re
-import json
 import logging
+import re
 from urllib.parse import quote_plus, unquote
 
+import requests
 
 logger = logging.getLogger("web_search")
 
