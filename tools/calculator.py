@@ -26,6 +26,9 @@ def run(expression: str):
             if isinstance(node, ast.Expression):
                 return _eval(node.body)
             elif isinstance(node, ast.Constant):
+                # CWE-20: 仅允许数值类型常量，防止字符串/bytes 等非数值类型进入运算
+                if not isinstance(node.value, (int, float)):
+                    raise ValueError(f"不支持的常量类型: {type(node.value).__name__}")
                 return node.value
             elif isinstance(node, ast.Num):  # Python < 3.8
                 return node.n
