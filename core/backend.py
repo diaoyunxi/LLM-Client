@@ -434,7 +434,10 @@ class OpenAIBackend(Backend):
                             break
                         try:
                             chunk = json.loads(data)
-                            delta = chunk.get("choices", [{}])[0].get("delta", {})
+                            choices = chunk.get("choices", [])
+                            if not choices:
+                                continue
+                            delta = choices[0].get("delta", {})
                             
                             # 处理思考过程（某些模型如 DeepSeek-R1 通过 reasoning_content 返回）
                             thinking_text = delta.get("reasoning_content", "") or ""
@@ -619,7 +622,10 @@ class LlamaCppBackend(Backend):
                             break
                         try:
                             chunk = json.loads(data)
-                            delta = chunk.get("choices", [{}])[0].get("delta", {})
+                            choices = chunk.get("choices", [])
+                            if not choices:
+                                continue
+                            delta = choices[0].get("delta", {})
                             content = delta.get("content", "")
                             if content:
                                 yield StreamChunk(content=content)
