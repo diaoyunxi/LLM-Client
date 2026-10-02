@@ -141,9 +141,17 @@ class Backend(ABC):
         安全限制: 仅允许读取用户主目录下的文件, 防止越权读取系统敏感文件。
         """
         # 路径校验: 限制只能读取用户目录下的文件
-        home_dir = os.path.expanduser("~")
+        # 安全修复: startswith(home_dir) 存在前缀匹配漏洞——
+        # 若 home_dir="/home/user"，则 "/home/user2/secret" 也会通过检查。
+        # 改用 commonpath 确保路径确实在 home_dir 之内。
+        home_dir = os.path.realpath(os.path.expanduser("~"))
         real_path = os.path.realpath(image_path)
-        if not real_path.startswith(home_dir):
+        try:
+            common = os.path.commonpath([real_path, home_dir])
+        except ValueError:
+            # Windows 上不同驱动器号会抛出 ValueError
+            common = ""
+        if common != home_dir:
             raise PermissionError(f"安全限制: 仅允许读取用户目录 ({home_dir}) 下的文件")
         with open(image_path, "rb") as f:
             return base64.b64encode(f.read()).decode("utf-8")
