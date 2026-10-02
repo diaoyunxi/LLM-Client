@@ -26,7 +26,7 @@ logger = logging.getLogger("web_search")
 def _search_duckduckgo(query: str, max_results: int = 5) -> list:
     """
     通过 DuckDuckGo HTML 版本获取搜索结果
-    无需 API Key，无依赖
+    无需 API Key，依赖 requests 库
     """
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
