@@ -75,6 +75,14 @@ class AgentLoop:
         4. Markdown 代码块: ```tool\n{...}\n```
         """
         tool_calls = []
+        seen_keys = set()  # 用于去重：(name, args_json)
+
+        def _add_unique(tc: Dict[str, Any]) -> None:
+            """添加去重后的工具调用"""
+            key = (tc.get("name", ""), json.dumps(tc.get("arguments", {}), sort_keys=True))
+            if key not in seen_keys:
+                seen_keys.add(key)
+                tool_calls.append(tc)
 
         # 尝试匹配 Markdown 代码块中的 JSON
         code_block_pattern = r'```(?:json|tool)?\s*\n(.*?)\n```'
@@ -82,18 +90,46 @@ class AgentLoop:
             try:
                 data = json.loads(match.group(1).strip())
                 if "tool" in data or "name" in data:
-                    tool_calls.append(self._normalize_tool_call(data))
+                    _add_unique(self._normalize_tool_call(data))
             except json.JSONDecodeError:
                 pass
 
-        # 尝试匹配内联 JSON 对象
-        inline_json_pattern = r'\{\s*"(?:tool|name)"\s*:\s*"[^"]+"[^}]*\}'
-        for match in re.finditer(inline_json_pattern, content):
-            try:
-                data = json.loads(match.group(0))
-                tool_calls.append(self._normalize_tool_call(data))
-            except json.JSONDecodeError:
-                pass
+        # 尝试匹配内联 JSON 对象（支持嵌套对象）
+        # 使用大括号计数法提取完整的 JSON 对象，解决原正则 [^}]* 无法处理嵌套的问题
+        inline_start_pattern = r'\{\s*"(?:tool|name)"\s*:\s*"'
+        for match in re.finditer(inline_start_pattern, content):
+            start = match.start()
+            depth = 0
+            in_string = False
+            escape_next = False
+            end = start
+            for i in range(start, len(content)):
+                ch = content[i]
+                if escape_next:
+                    escape_next = False
+                    continue
+                if ch == '\\' and in_string:
+                    escape_next = True
+                    continue
+                if ch == '"' and not escape_next:
+                    in_string = not in_string
+                    continue
+                if in_string:
+                    continue
+                if ch == '{':
+                    depth += 1
+                elif ch == '}':
+                    depth -= 1
+                    if depth == 0:
+                        end = i + 1
+                        break
+            if end > start and depth == 0:
+                try:
+                    data = json.loads(content[start:end])
+                    if "tool" in data or "name" in data:
+                        _add_unique(self._normalize_tool_call(data))
+                except json.JSONDecodeError:
+                    pass
 
         # 尝试匹配 XML 格式
         xml_pattern = r'<tool\s+name="([^"]+)"[^>]*>(.*?)</tool>'
@@ -103,7 +139,7 @@ class AgentLoop:
                 args = json.loads(match.group(2).strip())
             except Exception:
                 args = {"content": match.group(2).strip()}
-            tool_calls.append({"name": tool_name, "arguments": args})
+            _add_unique({"name": tool_name, "arguments": args})
 
         return tool_calls
 
