@@ -373,6 +373,7 @@ class MainWindow(QMainWindow):
 
         self.model_combo = QComboBox()
         self.model_combo.setEnabled(False)
+        self.model_combo.currentTextChanged.connect(self.on_model_changed)
         model_layout.addWidget(self.model_combo)
 
         self.model_info_label = QLabel("未连接")
@@ -573,6 +574,11 @@ class MainWindow(QMainWindow):
         else:
             self.port_spin.setValue(11434)
 
+    def on_model_changed(self, text: str):
+        """模型选择改变"""
+        if text:
+            self.current_model = text
+
     def do_connect(self):
         """连接后端"""
         backend_type = self.backend_combo.currentText().lower()
@@ -643,6 +649,7 @@ class MainWindow(QMainWindow):
                 think=self.think_checkbox.isChecked(),
             )
         else:
+            self.agent.model = self.current_model
             self.agent.max_iterations = self.max_iter_spin.value()
             self.agent.temperature = self.temp_spin.value()
             self.agent.think = self.think_checkbox.isChecked()
