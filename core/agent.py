@@ -122,6 +122,43 @@ class AgentLoop:
         """检查回复中是否包含工具调用"""
         return len(self._extract_tool_calls(content)) > 0
 
+    def _strip_tool_markup(self, content: str) -> str:
+        """从模型回复中移除工具调用标记，仅保留人类可读文本。
+
+        存入对话历史时调用此方法，防止模型在下轮迭代中看到工具调用 JSON/XML
+        标记后重复执行工具或产生混淆。
+
+        移除的内容包括：
+        - Markdown 代码块中的工具调用 JSON
+        - XML 格式的 <tool>...</tool> 标签
+        - 内联 JSON 工具调用对象
+        """
+        # 移除 ```json/tool 代码块中包含 tool/name 字段的 JSON
+        code_block_pattern = r'```(?:json|tool)?\s*\n(.*?)\n```'
+        for match in re.finditer(code_block_pattern, content, re.DOTALL):
+            try:
+                data = json.loads(match.group(1).strip())
+                if "tool" in data or "name" in data:
+                    content = content.replace(match.group(0), "")
+            except (json.JSONDecodeError, ValueError):
+                pass
+
+        # 移除 XML 格式工具调用
+        xml_pattern = r'<tool\s+name="([^"]+)"[^>]*>.*?</tool>'
+        content = re.sub(xml_pattern, "", content, flags=re.DOTALL)
+
+        # 移除内联 JSON 工具调用
+        inline_json_pattern = r'\{\s*"(?:tool|name)"\s*:\s*"[^"]+"[^}]*\}'
+        for match in re.finditer(inline_json_pattern, content):
+            try:
+                data = json.loads(match.group(0))
+                if "tool" in data or "name" in data:
+                    content = content.replace(match.group(0), "")
+            except (json.JSONDecodeError, ValueError):
+                pass
+
+        return content.strip()
+
     def run(
         self,
         user_input: str,
@@ -175,7 +212,9 @@ class AgentLoop:
                 # 从流式输出文本中提取工具调用 (不再发起非流式重请求)
                 tool_calls = self._extract_tool_calls(full_response)
 
-                self.conversation.add_message("assistant", full_response, thinking=full_thinking)
+                # 存入对话历史时去除工具调用标记，防止下轮模型重复执行
+                clean_response = self._strip_tool_markup(full_response) if self._has_tool_calls(full_response) else full_response
+                self.conversation.add_message("assistant", clean_response, thinking=full_thinking)
 
                 if not tool_calls:
                     # 没有工具调用，对话结束
@@ -237,7 +276,9 @@ class AgentLoop:
                 thinking_content = msg.get("thinking", "")
                 native_tool_calls = msg.get("tool_calls", [])
 
-                self.conversation.add_message("assistant", content, thinking=thinking_content)
+                # 存入对话历史时去除工具调用标记，防止下轮模型重复执行
+                clean_content = self._strip_tool_markup(content) if self._has_tool_calls(content) else content
+                self.conversation.add_message("assistant", clean_content, thinking=thinking_content)
 
                 # 输出思考内容
                 if thinking_content:
