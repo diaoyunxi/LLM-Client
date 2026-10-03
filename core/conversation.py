@@ -188,9 +188,18 @@ class Conversation:
         return conv
 
     def save(self, filepath: str) -> None:
-        """保存对话到文件"""
-        with open(filepath, "w", encoding="utf-8") as f:
-            json.dump(self.to_dict(), f, ensure_ascii=False, indent=2)
+        """保存对话到文件（原子写入，防止写入中断导致数据损坏）"""
+        import os
+        import tempfile
+        dir_name = os.path.dirname(os.path.abspath(filepath))
+        fd, tmp_path = tempfile.mkstemp(dir=dir_name, suffix=".tmp")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                json.dump(self.to_dict(), f, ensure_ascii=False, indent=2)
+            os.replace(tmp_path, filepath)
+        except Exception:
+            os.unlink(tmp_path)
+            raise
 
     @classmethod
     def load(cls, filepath: str) -> "Conversation":
