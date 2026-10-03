@@ -77,8 +77,6 @@ def run(expression: str):
                     'exp': math.exp,
                     'ceil': math.ceil,
                     'floor': math.floor,
-                    'pi': math.pi,
-                    'e': math.e,
                 }
                 if func_name not in allowed_funcs:
                     raise ValueError(f"不允许调用的函数: {func_name}")
