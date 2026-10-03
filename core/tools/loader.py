@@ -20,6 +20,7 @@ class ToolLoader:
         self.tools: Dict[str, ToolDefinition] = {}
         self._functions: Dict[str, Callable] = {}
         self._modules: Dict[str, Any] = {}
+        self._sys_module_names: Dict[str, str] = {}  # tool_name -> sys.modules key
 
     def add_tools_dir(self, directory: str) -> None:
         """添加工具目录"""
@@ -59,6 +60,7 @@ class ToolLoader:
             sys.modules[module_name] = module
             spec.loader.exec_module(module)
             self._modules[tool_def.name] = module
+            self._sys_module_names[tool_def.name] = module_name
 
             # 获取执行函数
             func_name = tool_def.function_name
@@ -129,11 +131,15 @@ class ToolLoader:
             }
 
     def unload_tool(self, name: str) -> bool:
-        """卸载工具"""
+        """卸载工具，同时清理 sys.modules 中的模块引用防止内存泄漏 (CWE-772)"""
         if name in self.tools:
             self.tools.pop(name, None)
             self._functions.pop(name, None)
             self._modules.pop(name, None)
+            # 清理 sys.modules 中注册的动态模块，防止模块缓存泄漏
+            sys_mod_name = self._sys_module_names.pop(name, None)
+            if sys_mod_name and sys_mod_name in sys.modules:
+                del sys.modules[sys_mod_name]
             return True
         return False
 
