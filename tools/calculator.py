@@ -37,7 +37,24 @@ def run(expression: str):
                 elif isinstance(node.op, ast.Sub):
                     return left - right
                 elif isinstance(node.op, ast.Mult):
-                    return left * right
+                    # 限制乘法操作数大小防止 DoS：大数相乘或字符串重复会耗尽内存 (CWE-400)
+                    if isinstance(left, (int, float)) and isinstance(right, (int, float)):
+                        if abs(left) > 1e50 or abs(right) > 1e50:
+                            raise ValueError("乘法操作数超出范围限制")
+                    elif isinstance(left, str) and isinstance(right, int):
+                        if right > 10000:
+                            raise ValueError(f"字符串重复次数不能超过 10000，当前值: {right}")
+                    elif isinstance(right, str) and isinstance(left, int):
+                        if left > 10000:
+                            raise ValueError(f"字符串重复次数不能超过 10000，当前值: {left}")
+                    result = left * right
+                    # 限制结果大小
+                    if isinstance(result, (int, float)) and not isinstance(result, bool):
+                        if abs(result) > 1e100:
+                            raise ValueError("计算结果超出范围限制 (±1e100)")
+                    elif isinstance(result, str) and len(result) > 100000:
+                        raise ValueError("字符串结果长度超出限制")
+                    return result
                 elif isinstance(node.op, ast.Div):
                     return left / right
                 elif isinstance(node.op, ast.Pow):
