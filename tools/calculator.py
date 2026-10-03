@@ -41,6 +41,9 @@ def run(expression: str):
                 elif isinstance(node.op, ast.Div):
                     return left / right
                 elif isinstance(node.op, ast.Pow):
+                    # 限制指数大小防止 DoS：大指数运算会耗尽 CPU/内存 (CWE-400)
+                    if isinstance(right, (int, float)) and abs(right) > 1000:
+                        raise ValueError(f"指数绝对值不能超过 1000，当前值: {right}")
                     return left ** right
                 elif isinstance(node.op, ast.Mod):
                     return left % right
@@ -98,6 +101,10 @@ def run(expression: str):
                 raise ValueError(f"不支持的节点类型: {type(node).__name__}")
 
         result = _eval(node)
+        # 限制结果大小防止大数运算 DoS (CWE-400)
+        if isinstance(result, (int, float)) and not isinstance(result, bool):
+            if abs(result) > 1e100:
+                raise ValueError("计算结果超出范围限制 (±1e100)")
         return {
             "expression": expression,
             "result": result,
