@@ -8,7 +8,6 @@
 """
 
 import sys
-import os
 from pathlib import Path
 
 # 将项目根目录加入 sys.path
