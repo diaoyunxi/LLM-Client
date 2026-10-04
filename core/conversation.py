@@ -13,6 +13,9 @@ from dataclasses import dataclass, field, asdict
 from typing import List, Dict, Any, Optional
 from .backend import ChatMessage
 
+# 对话历史持久化上限（条），超过后自动裁剪最旧的消息，防止文件无限膨胀
+DEFAULT_MAX_HISTORY = 500
+
 
 @dataclass
 class Message:
@@ -59,6 +62,7 @@ class Conversation:
     model: str = ""
     system_prompt: str = ""
     metadata: Dict[str, Any] = field(default_factory=dict)
+    max_history: int = DEFAULT_MAX_HISTORY
 
     def __post_init__(self):
         if not self.id:
@@ -75,7 +79,20 @@ class Conversation:
         )
         self.messages.append(msg)
         self.updated_at = time.time()
+        # 超过历史上限时裁剪旧消息，保留最近的 max_history 条
+        self._trim_history()
         return msg
+
+    def _trim_history(self) -> None:
+        """裁剪历史消息，保留最近的 max_history 条（不含 system 消息）"""
+        if self.max_history <= 0:
+            return
+        # 分离 system 消息和非 system 消息
+        system_msgs = [m for m in self.messages if m.role == "system"]
+        non_system = [m for m in self.messages if m.role != "system"]
+        if len(non_system) > self.max_history:
+            non_system = non_system[-self.max_history:]
+        self.messages = system_msgs + non_system
 
     def add_system_message(self, content: str) -> None:
         """设置系统提示词"""
@@ -163,6 +180,7 @@ class Conversation:
             "model": self.model,
             "system_prompt": self.system_prompt,
             "metadata": self.metadata,
+            "max_history": self.max_history,
         }
 
     @classmethod
@@ -175,6 +193,7 @@ class Conversation:
             model=data.get("model", ""),
             system_prompt=data.get("system_prompt", ""),
             metadata=data.get("metadata", {}),
+            max_history=data.get("max_history", DEFAULT_MAX_HISTORY),
         )
         for m in data.get("messages", []):
             conv.messages.append(Message(
@@ -196,4 +215,7 @@ class Conversation:
     def load(cls, filepath: str) -> "Conversation":
         """从文件加载对话"""
         with open(filepath, "r", encoding="utf-8") as f:
-            return cls.from_dict(json.load(f))
+            conv = cls.from_dict(json.load(f))
+        # 加载后也执行裁剪，防止旧文件超出新限制
+        conv._trim_history()
+        return conv
