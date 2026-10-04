@@ -7,8 +7,8 @@
 - _has_tool_calls: 工具调用检测
 """
 
-import sys
 import os
+import sys
 from pathlib import Path
 
 # 将项目根目录加入 sys.path

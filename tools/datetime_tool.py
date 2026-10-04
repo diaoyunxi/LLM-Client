@@ -14,8 +14,8 @@ TOOL_PARAMETERS:
         default: Asia/Shanghai
 """
 
-from datetime import datetime
 import time
+from datetime import datetime
 
 
 def run(format: str = "iso", timezone: str = "Asia/Shanghai"):
@@ -47,7 +47,8 @@ def run(format: str = "iso", timezone: str = "Asia/Shanghai"):
 
     offset_hours = tz_offsets.get(timezone, 8)
     # 这里简化处理，实际应使用 zoneinfo
-    from datetime import timezone as dt_timezone, timedelta
+    from datetime import timedelta
+    from datetime import timezone as dt_timezone
     tz = dt_timezone(timedelta(hours=offset_hours))
     now_with_tz = now.replace(tzinfo=tz)
 

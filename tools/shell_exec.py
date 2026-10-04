@@ -23,11 +23,10 @@ TOOL_PARAMETERS:
         default: 10000
 """
 
-import subprocess
+import logging
 import os
 import shlex
-import logging
-
+import subprocess
 
 logger = logging.getLogger("shell_exec")
 

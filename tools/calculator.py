@@ -8,9 +8,9 @@ TOOL_PARAMETERS:
         required: true
 """
 
+import ast
 import math
 import operator
-import ast
 
 
 def run(expression: str):

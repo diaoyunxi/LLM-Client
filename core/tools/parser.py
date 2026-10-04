@@ -13,10 +13,10 @@ TOOL_PARAMETERS:
         description: 数学表达式，如 "1 + 2 * 3"
         required: true
 """
-import re
 import json
+import re
 from dataclasses import dataclass, field
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
 
 
 @dataclass

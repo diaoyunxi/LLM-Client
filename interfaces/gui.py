@@ -3,29 +3,54 @@
 使用 PyQt6，提供完整的桌面应用体验
 """
 
+import json
 import os
 import sys
-import json
-from typing import Optional, List
+from typing import List, Optional
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core.backend import OllamaBackend, LlamaCppBackend, ModelInfo, StreamChunk
-from core.conversation import Conversation, Message
 from core.agent import AgentLoop
+from core.backend import LlamaCppBackend, ModelInfo, OllamaBackend, StreamChunk
+from core.conversation import Conversation, Message
 from core.tools.loader import ToolLoader
 
 try:
+    from PyQt6.QtCore import QSize, Qt, QThread, QTimer, pyqtSignal
+    from PyQt6.QtGui import QAction, QFont, QIcon, QImage, QPixmap
     from PyQt6.QtWidgets import (
-        QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-        QTextEdit, QLineEdit, QPushButton, QComboBox, QLabel, QSplitter,
-        QListWidget, QListWidgetItem, QFileDialog, QMessageBox, QTabWidget,
-        QGroupBox, QFormLayout, QSpinBox, QDoubleSpinBox, QCheckBox,
-        QDialog, QDialogButtonBox, QProgressBar, QSystemTrayIcon, QMenu,
-        QInputDialog, QPlainTextEdit, QFrame, QScrollArea, QSizePolicy
+        QApplication,
+        QCheckBox,
+        QComboBox,
+        QDialog,
+        QDialogButtonBox,
+        QDoubleSpinBox,
+        QFileDialog,
+        QFormLayout,
+        QFrame,
+        QGroupBox,
+        QHBoxLayout,
+        QInputDialog,
+        QLabel,
+        QLineEdit,
+        QListWidget,
+        QListWidgetItem,
+        QMainWindow,
+        QMenu,
+        QMessageBox,
+        QPlainTextEdit,
+        QProgressBar,
+        QPushButton,
+        QScrollArea,
+        QSizePolicy,
+        QSpinBox,
+        QSplitter,
+        QSystemTrayIcon,
+        QTabWidget,
+        QTextEdit,
+        QVBoxLayout,
+        QWidget,
     )
-    from PyQt6.QtCore import Qt, QThread, pyqtSignal, QSize, QTimer
-    from PyQt6.QtGui import QAction, QFont, QIcon, QPixmap, QImage
 except ImportError:
     print("请先安装 PyQt6: pip install PyQt6")
     sys.exit(1)

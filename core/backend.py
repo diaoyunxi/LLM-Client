@@ -5,15 +5,15 @@
 
 import base64
 import json
-import os
 import logging
+import os
 import uuid
-import requests
 from abc import ABC, abstractmethod
-from typing import Generator, List, Dict, Any, Optional, Union
 from dataclasses import dataclass, field
-import ollama
+from typing import Any, Dict, Generator, List, Optional, Union
 
+import ollama
+import requests
 
 logger = logging.getLogger("backend")
 
