@@ -138,8 +138,18 @@ class ToolLoader:
         return False
 
     def reload_tool(self, filepath: str) -> bool:
-        """重新加载工具"""
+        """重新加载工具
+
+        卸载旧模块时同时清理 sys.modules 中对应的条目，
+        防止每次 reload 遗留孤儿模块引用导致内存泄漏。
+        """
         tool_def = parse_tool_from_file(filepath)
         if tool_def and tool_def.name in self.tools:
+            # 记录旧模块名以便清理 sys.modules
+            old_module = self._modules.get(tool_def.name)
+            old_module_name = getattr(old_module, '__name__', None) if old_module else None
             self.unload_tool(tool_def.name)
+            # 清理 sys.modules 中的旧模块条目
+            if old_module_name and old_module_name in sys.modules:
+                del sys.modules[old_module_name]
         return self.load_tool(filepath)
