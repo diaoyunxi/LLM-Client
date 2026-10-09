@@ -87,7 +87,7 @@ class AgentLoop:
                 pass
 
         # 尝试匹配内联 JSON 对象
-        inline_json_pattern = r'\{\s*"(?:tool|name)"\s*:\s*"[^"]+"[^}]*\}'
+        inline_json_pattern = r'\{\s*"(?:tool|name)"\s*:\s*"[^"]+?"\s*,\s*(?:[^{}]|\{[^{}]*\})*\}'
         for match in re.finditer(inline_json_pattern, content):
             try:
                 data = json.loads(match.group(0))
