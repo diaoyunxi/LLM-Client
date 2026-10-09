@@ -7,6 +7,7 @@
 """
 
 import json
+import os
 import re
 import time
 from dataclasses import dataclass, field, asdict
@@ -188,9 +189,25 @@ class Conversation:
         return conv
 
     def save(self, filepath: str) -> None:
-        """保存对话到文件"""
-        with open(filepath, "w", encoding="utf-8") as f:
-            json.dump(self.to_dict(), f, ensure_ascii=False, indent=2)
+        """保存对话到文件（原子写入防止数据损坏）
+
+        使用临时文件 + os.replace 原子替换，防止写入过程中断
+        （崩溃/断电）导致文件被截断或损坏 (CWE-682)。
+        """
+        import tempfile
+        dir_name = os.path.dirname(os.path.abspath(filepath))
+        os.makedirs(dir_name, exist_ok=True)
+        fd, tmp_path = tempfile.mkstemp(suffix=".tmp", dir=dir_name)
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                json.dump(self.to_dict(), f, ensure_ascii=False, indent=2)
+            os.replace(tmp_path, filepath)
+        except BaseException:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+            raise
 
     @classmethod
     def load(cls, filepath: str) -> "Conversation":
