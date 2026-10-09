@@ -59,7 +59,7 @@ class ChatWorker(QThread):
                     self.chunk_ready.emit(chunk.content)
             self.finished_signal.emit()
         except Exception as e:
-            self.error_signal.emit(str(e))
+            self.error_signal.emit(f"{type(e).__name__}")
 
     def stop(self):
         self._is_running = False
@@ -721,7 +721,7 @@ class MainWindow(QMainWindow):
                     encoded = self.backend.encode_image(f)
                     self.image_attachments.append(encoded)
                 except Exception as e:
-                    QMessageBox.warning(self, "错误", f"加载图片失败: {e}")
+                    QMessageBox.warning(self, "错误", "加载图片失败")
             self.image_label.setText(f"📎 已附加 {len(self.image_attachments)} 张图片")
 
     def new_conversation(self):
@@ -753,7 +753,7 @@ class MainWindow(QMainWindow):
                 self.conversation.save(path)
                 QMessageBox.information(self, "成功", "对话已保存。")
             except Exception as e:
-                QMessageBox.critical(self, "错误", f"保存失败: {e}")
+                QMessageBox.critical(self, "错误", "保存失败")
 
     def load_conversation(self):
         """加载对话"""
@@ -774,7 +774,7 @@ class MainWindow(QMainWindow):
                 self.update_history_list()
                 QMessageBox.information(self, "成功", "对话已加载。")
             except Exception as e:
-                QMessageBox.critical(self, "错误", f"加载失败: {e}")
+                QMessageBox.critical(self, "错误", "加载失败")
 
     def update_history_list(self):
         """更新历史列表"""

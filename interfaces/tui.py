@@ -396,7 +396,7 @@ class LLMClientTUI(App):
                 # 刷新显示
                 msg_widget.refresh()
         except Exception as e:
-            full_content += f"\n[错误] {e}"
+            full_content += f"\n[错误] {type(e).__name__}"
             ai_msg.content = full_content
             msg_widget.refresh()
 
@@ -430,7 +430,7 @@ class LLMClientTUI(App):
                     self.query_one("#image-status", Static).update(f"已加载: {os.path.basename(path)}")
                     self.notify(f"图片已加载: {path}", severity="information")
                 except Exception as e:
-                    self.notify(f"图片加载失败: {e}", severity="error")
+                    self.notify("图片加载失败", severity="error")
             else:
                 self.notify("文件不存在", severity="error")
         elif cmd == "save" and len(parts) > 1:
@@ -438,7 +438,7 @@ class LLMClientTUI(App):
                 self.conversation.save(parts[1].strip())
                 self.notify("对话已保存", severity="information")
             except Exception as e:
-                self.notify(f"保存失败: {e}", severity="error")
+                self.notify("保存失败", severity="error")
         elif cmd == "load" and len(parts) > 1:
             try:
                 self.conversation = Conversation.load(parts[1].strip())
@@ -451,7 +451,7 @@ class LLMClientTUI(App):
                     self.add_message_widget(msg)
                 self.notify("对话已加载", severity="information")
             except Exception as e:
-                self.notify(f"加载失败: {e}", severity="error")
+                self.notify("加载失败", severity="error")
         else:
             self.notify(f"未知命令: {cmd}", severity="warning")
 

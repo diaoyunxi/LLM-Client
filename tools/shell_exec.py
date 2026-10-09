@@ -90,7 +90,7 @@ def _check_whitelist(command: str) -> tuple[bool, str]:
     try:
         tokens = shlex.split(command)
     except ValueError as e:
-        return False, f"命令解析失败: {e}"
+        return False, "命令解析失败"
     if not tokens:
         return False, "命令为空"
     # 取首个 token 的基础名 (去掉路径前缀, 如 /usr/bin/ls -> ls)
@@ -152,7 +152,7 @@ def run(command: str, timeout: int = 30, working_dir: str = ".", max_output: int
     except ValueError as e:
         return {
             "success": False,
-            "error": f"命令解析错误: {e}",
+            "error": "命令解析错误",
             "output": "",
             "exit_code": -1,
         }
@@ -210,7 +210,7 @@ def run(command: str, timeout: int = 30, working_dir: str = ".", max_output: int
         logger.warning("shell_exec 执行失败: %s", e)
         return {
             "success": False,
-            "error": f"执行失败: {e}",
+            "error": "执行失败",
             "output": "",
             "exit_code": -1,
         }
