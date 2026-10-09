@@ -53,21 +53,41 @@ def _search_duckduckgo(query: str, max_results: int = 5) -> list:
         )
 
         if not result_blocks:
-            # 备用匹配模式
-            result_blocks = re.findall(
+            # 备用匹配模式：属性顺序可能与主模式不同（如 class 在 href 之后），
+            # 旧实现未提取 href 导致所有降级结果缺少 URL，无法点击跳转。
+            fallback_blocks = re.findall(
                 r'<a[^>]*class="result__a"[^>]*>(.*?)</a>.*?'
                 r'<a[^>]*class="result__snippet"[^>]*>(.*?)</a>',
                 html,
                 re.DOTALL
             )
-            for title, snippet in result_blocks[:max_results]:
+            # 同时单独提取所有 result__a 的 href 用于补全 URL
+            fallback_hrefs = re.findall(
+                r'<a[^>]*class="result__a"[^>]*href="([^"]+)"[^>]*>',
+                html,
+            )
+            if not fallback_hrefs:
+                # 尝试 href 在 class 之前的属性顺序
+                fallback_hrefs = re.findall(
+                    r'<a[^>]*href="([^"]+)"[^>]*class="result__a"[^>]*>',
+                    html,
+                )
+            for i, (title, snippet) in enumerate(fallback_blocks[:max_results]):
                 clean_title = re.sub(r'<[^>]+>', '', title).strip()
                 clean_snippet = re.sub(r'<[^>]+>', '', snippet).strip()
+                actual_url = ""
+                if i < len(fallback_hrefs):
+                    href = fallback_hrefs[i]
+                    uddg_match = re.search(r'uddg=([^&]+)', href)
+                    if uddg_match:
+                        actual_url = unquote(uddg_match.group(1))
+                    elif href.startswith("http"):
+                        actual_url = href
                 if clean_title:
                     results.append({
                         "title": clean_title,
                         "snippet": clean_snippet,
-                        "url": "",
+                        "url": actual_url,
                     })
         else:
             for link, title, snippet in result_blocks[:max_results]:
