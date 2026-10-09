@@ -37,11 +37,21 @@ def run(expression: str):
                 elif isinstance(node.op, ast.Sub):
                     return left - right
                 elif isinstance(node.op, ast.Mult):
-                    return left * right
+                    result = left * right
+                    # 防止超大数乘法消耗过多内存
+                    if isinstance(result, int) and abs(result) > 10**1000:
+                        raise ValueError("乘法结果超出安全范围")
+                    return result
                 elif isinstance(node.op, ast.Div):
                     return left / right
                 elif isinstance(node.op, ast.Pow):
-                    return left ** right
+                    # 幂运算安全限制：指数绝对值不超过 1000，结果不超过 10^100
+                    if isinstance(right, (int, float)) and abs(right) > 1000:
+                        raise ValueError(f"指数过大 ({right})，安全限制 ±1000")
+                    result = left ** right
+                    if isinstance(result, (int, float)) and abs(result) > 1e100:
+                        raise ValueError("计算结果超出安全范围 (±10^100)")
+                    return result
                 elif isinstance(node.op, ast.Mod):
                     return left % right
                 elif isinstance(node.op, ast.FloorDiv):
