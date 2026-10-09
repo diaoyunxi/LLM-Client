@@ -3,6 +3,7 @@
 扫描目录、加载外置工具、执行工具调用
 """
 
+import logging
 import os
 import sys
 import json
@@ -10,6 +11,9 @@ import uuid
 import importlib.util
 from typing import Dict, List, Any, Optional, Callable
 from .parser import ToolDefinition, parse_tool_from_file
+
+
+logger = logging.getLogger("tool_loader")
 
 
 class ToolLoader:
@@ -65,15 +69,15 @@ class ToolLoader:
             if hasattr(module, func_name):
                 self._functions[tool_def.name] = getattr(module, func_name)
             else:
-                print(f"[ToolLoader] 警告: 工具 {tool_def.name} 未找到函数 {func_name}")
+                logger.warning("工具 %s 未找到函数 %s", tool_def.name, func_name)
                 self._functions[tool_def.name] = None
 
             self.tools[tool_def.name] = tool_def
-            print(f"[ToolLoader] 已加载工具: {tool_def.name}")
+            logger.info("已加载工具: %s", tool_def.name)
             return True
 
         except Exception as e:
-            print(f"[ToolLoader] 加载工具失败 {filepath}: {e}")
+            logger.error("加载工具失败 %s: %s", filepath, e)
             return False
 
     def get_tool_definitions(self) -> List[Dict[str, Any]]:

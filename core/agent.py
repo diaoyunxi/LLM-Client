@@ -63,7 +63,8 @@ class AgentLoop:
             try:
                 cb(step)
             except Exception as e:
-                print(f"[AgentLoop] 回调错误: {e}")
+                logger.warning("步骤回调执行失败 (step_type=%s, tool=%s): %s",
+                               step.step_type, step.tool_name, e)
 
     def _extract_tool_calls(self, content: str) -> List[Dict[str, Any]]:
         """
