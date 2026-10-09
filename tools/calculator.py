@@ -77,8 +77,9 @@ def run(expression: str):
                     'exp': math.exp,
                     'ceil': math.ceil,
                     'floor': math.floor,
-                    'pi': math.pi,
-                    'e': math.e,
+                    # 注意: pi 和 e 是常量（ast.Name 节点），不应放在 allowed_funcs 中
+                    # 否则用户写 pi() 或 e() 会触发 TypeError（float 不可调用）
+                    # 它们已在下方 allowed_names 中正确处理
                 }
                 if func_name not in allowed_funcs:
                     raise ValueError(f"不允许调用的函数: {func_name}")
@@ -86,8 +87,9 @@ def run(expression: str):
                 return allowed_funcs[func_name](*args)
             elif isinstance(node, ast.Name):
                 allowed_names = {
-                    'pi': math.pi,
-                    'e': math.e,
+                    # 注意: pi 和 e 是常量（ast.Name 节点），不应放在 allowed_funcs 中
+                    # 否则用户写 pi() 或 e() 会触发 TypeError（float 不可调用）
+                    # 它们已在下方 allowed_names 中正确处理
                     'inf': math.inf,
                     'nan': math.nan,
                 }
