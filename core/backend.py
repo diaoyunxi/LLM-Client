@@ -420,6 +420,7 @@ class OpenAIBackend(Backend):
                     headers=self._headers,
                     json=payload,
                     stream=True,
+                        timeout=30,
                     timeout=(10, 60),
                 )
             resp = self._request_with_retry(_make_request)
@@ -482,6 +483,7 @@ class OpenAIBackend(Backend):
                     f"{self.base_url}/chat/completions",
                     headers=self._headers,
                     json=payload,
+                        timeout=30,
                     timeout=(10, 60),
                 )
             resp = self._request_with_retry(_make_request)
@@ -611,6 +613,7 @@ class LlamaCppBackend(Backend):
                 f"{self.base_url}/v1/chat/completions",
                 json=payload,
                 stream=True,
+                    timeout=30,
                 timeout=(10, 60),
             )
             for raw_line in resp.iter_lines():
@@ -650,6 +653,7 @@ class LlamaCppBackend(Backend):
                 f"{self.base_url}/completion",
                 json=payload,
                 stream=True,
+                    timeout=30,
                 timeout=(10, 60),
             )
             for raw_line in resp.iter_lines():
@@ -703,6 +707,7 @@ class LlamaCppBackend(Backend):
             resp = requests.post(
                 f"{self.base_url}/v1/chat/completions",
                 json=payload,
+                    timeout=30,
                 timeout=(10, 60),
             )
             return resp.json()
