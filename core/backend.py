@@ -425,9 +425,9 @@ class OpenAIBackend(Backend):
             resp = self._request_with_retry(_make_request)
             resp.raise_for_status()
             
-            for line in resp.iter_lines():
-                if line:
-                    line = line.decode("utf-8")
+            for raw_line in resp.iter_lines():
+                if raw_line:
+                    line = raw_line.decode("utf-8")
                     if line.startswith("data: "):
                         data = line[6:]
                         if data == "[DONE]":
@@ -613,9 +613,9 @@ class LlamaCppBackend(Backend):
                 stream=True,
                 timeout=(10, 60),
             )
-            for line in resp.iter_lines():
-                if line:
-                    line = line.decode("utf-8")
+            for raw_line in resp.iter_lines():
+                if raw_line:
+                    line = raw_line.decode("utf-8")
                     if line.startswith("data: "):
                         data = line[6:]
                         if data == "[DONE]":
@@ -652,9 +652,9 @@ class LlamaCppBackend(Backend):
                 stream=True,
                 timeout=(10, 60),
             )
-            for line in resp.iter_lines():
-                if line:
-                    line = line.decode("utf-8")
+            for raw_line in resp.iter_lines():
+                if raw_line:
+                    line = raw_line.decode("utf-8")
                     if line.startswith("data: "):
                         data = line[6:]
                         try:
