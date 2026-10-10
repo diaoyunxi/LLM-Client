@@ -110,8 +110,8 @@ class AgentLoop:
 
     def _normalize_tool_call(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """规范化工具调用格式"""
-        name = data.get("tool") or data.get("name") or data.get("function", {}).get("name", "")
-        args = data.get("parameters") or data.get("arguments") or data.get("params", {})
+        name = data.get("tool") or data.get("name") or (data.get("function") or {}).get("name", "")
+        args = data.get("parameters") or data.get("arguments") or data.get("params") or {}
         if isinstance(args, str):
             try:
                 args = json.loads(args)

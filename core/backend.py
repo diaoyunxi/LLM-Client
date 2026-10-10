@@ -376,8 +376,8 @@ class OpenAIBackend(Backend):
                         "id": tc.get("id", f"call_{uuid.uuid4().hex[:8]}"),
                         "type": "function",
                         "function": {
-                            "name": tc.get("function", {}).get("name", ""),
-                            "arguments": json.dumps(tc.get("function", {}).get("arguments", {}))
+                            "name": (tc.get("function") or {}).get("name", ""),
+                            "arguments": json.dumps((tc.get("function") or {}).get("arguments", {}))
                         }
                     })
                 item["tool_calls"] = openai_tool_calls
@@ -517,7 +517,7 @@ class LlamaCppBackend(Backend):
             if resp.status_code == 200:
                 data = resp.json()
                 info = ModelInfo(
-                    name=data.get("default_generation_settings", {}).get("model", "llama.cpp-model")
+                    name=(data.get("default_generation_settings") or {}).get("model", "llama.cpp-model")
                 )
                 info.supports_vision = False  # llama.cpp 原生 server 不支持多模态
                 info.supports_tools = False   # 原生 HTTP 接口不支持工具调用
