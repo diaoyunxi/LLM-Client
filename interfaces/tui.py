@@ -253,7 +253,7 @@ class LLMClientTUI(App):
         tools_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "tools")
         if os.path.isdir(tools_dir):
             self.tool_loader.add_tools_dir(tools_dir)
-            loaded = self.tool_loader.load_all()
+            self.tool_loader.load_all()
             self.update_tools_display()
 
     def update_tools_display(self) -> None:
