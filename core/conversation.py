@@ -60,6 +60,7 @@ class Conversation:
     model: str = ""
     system_prompt: str = ""
     metadata: Dict[str, Any] = field(default_factory=dict)
+    _auto_save_path: Optional[str] = None
 
     def __post_init__(self):
         if not self.id:
@@ -76,6 +77,7 @@ class Conversation:
         )
         self.messages.append(msg)
         self.updated_at = time.time()
+        self.auto_save()
         return msg
 
     def add_system_message(self, content: str) -> None:
@@ -87,6 +89,7 @@ class Conversation:
         else:
             self.messages.insert(0, Message(role="system", content=content))
         self.updated_at = time.time()
+        self.auto_save()
 
     def get_context_messages(self, max_messages: int = 50) -> List[ChatMessage]:
         """
@@ -111,6 +114,7 @@ class Conversation:
         """清空对话历史"""
         self.messages.clear()
         self.updated_at = time.time()
+        self.auto_save()
 
     def estimate_tokens(self) -> int:
         """
@@ -208,6 +212,18 @@ class Conversation:
             except OSError:
                 pass
             raise
+
+    def set_auto_save_path(self, path: str) -> None:
+        """设置自动保存路径，设置后每次 add_message 会自动保存"""
+        self._auto_save_path = path
+
+    def auto_save(self) -> None:
+        """如果设置了自动保存路径，则保存到该路径"""
+        if self._auto_save_path:
+            try:
+                self.save(self._auto_save_path)
+            except Exception:
+                pass  # 静默失败，不影响主流程
 
     @classmethod
     def load(cls, filepath: str) -> "Conversation":
