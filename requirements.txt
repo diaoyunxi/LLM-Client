@@ -1,4 +1,4 @@
-ollama>=0.3.0
+ollama>=0.6.3
 PyQt6>=6.6.0
 textual>=0.52.0
 requests>=2.32.0
