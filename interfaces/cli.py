@@ -246,7 +246,7 @@ def run_cli(backend: str = None, host: str = None, port: int = None,
                 sys.stdout.write("\033[0m\n")
             print()  # 换行
         except Exception as e:
-            print(f"\n[错误] {e}")
+            print(f"\n[错误] {type(e).__name__}")
 
         # 清空图片（避免重复发送）
         images = []

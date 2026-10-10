@@ -118,4 +118,4 @@ def run(expression: str):
     except ZeroDivisionError:
         return {"error": "除零错误"}
     except Exception as e:
-        return {"error": str(e)}
+        return {"error": f"计算错误: {type(e).__name__}"}

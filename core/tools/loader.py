@@ -124,7 +124,7 @@ class ToolLoader:
         except Exception as e:
             return {
                 "success": False,
-                "error": str(e),
+                "error": f"{type(e).__name__}",
                 "output": None,
             }
 
