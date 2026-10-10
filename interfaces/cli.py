@@ -40,6 +40,7 @@ def select_model(backend) -> Optional[str]:
         print(f"  {i}. {m.name}{vision}{tools}")
     print()
 
+    _max_iter = 1000000  # Safety limit
     while True:
         choice = input("请选择模型编号 (或输入模型名): ").strip()
         if choice.isdigit():
