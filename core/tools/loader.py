@@ -133,11 +133,21 @@ class ToolLoader:
             }
 
     def unload_tool(self, name: str) -> bool:
-        """卸载工具"""
+        """卸载工具
+
+        同时清理 sys.modules 中对应的动态模块条目，
+        防止每次加载/卸载遗留孤儿模块引用导致内存泄漏。
+        """
         if name in self.tools:
+            # 先记录模块名以便清理 sys.modules
+            old_module = self._modules.get(name)
+            old_module_name = getattr(old_module, '__name__', None) if old_module else None
             self.tools.pop(name, None)
             self._functions.pop(name, None)
             self._modules.pop(name, None)
+            # 清理 sys.modules 中的孤儿模块条目
+            if old_module_name and old_module_name in sys.modules:
+                del sys.modules[old_module_name]
             return True
         return False
 
