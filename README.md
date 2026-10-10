@@ -23,7 +23,7 @@
 ## 项目结构
 
 ```
-llm_client/
+llm_llm_client/
 ├── core/                   # 后端核心模块
 │   ├── backend.py          # 后端抽象（OllamaBackend / LlamaCppBackend）
 │   ├── conversation.py     # 多轮对话管理
