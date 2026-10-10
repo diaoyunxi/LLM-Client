@@ -234,7 +234,7 @@ class AgentLoop:
                     self.conversation.add_message(
                         "tool",
                         json.dumps(result, ensure_ascii=False),
-                        **{"tool_call_id": tc.get("id", ""), "name": tc["name"]}
+                        tool_call_id=tc.get("id", ""), name=tc["name"]
                     )
 
             else:
@@ -288,7 +288,7 @@ class AgentLoop:
                     self.conversation.add_message(
                         "tool",
                         result_text,
-                        **{"tool_call_id": tc.get("id", ""), "name": tc["name"]}
+                        tool_call_id=tc.get("id", ""), name=tc["name"]
                     )
 
         if iteration >= self.max_iterations:
