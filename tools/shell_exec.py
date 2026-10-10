@@ -51,20 +51,40 @@ DANGEROUS_COMMANDS = [
 
 # 允许执行的命令白名单 (基于命令首个 token 匹配)
 # 使用 shell=False 后, 不再支持管道/重定向, 仅允许独立命令
+#
+# 安全策略：不包含解释器/编译器（python, node, go, java 等），
+# 因为它们可通过 -c / -e 参数执行任意代码，完全绕过白名单限制（CWE-78）。
+# 例如: python3 -c "import os; os.system('rm -rf /')" 可绕过白名单执行任意命令。
 ALLOWED_COMMANDS = {
-    "ls", "cat", "echo", "pwd", "whoami", "hostname", "date", "uname",
-    "head", "tail", "wc", "sort", "uniq", "cut", "tr", "diff", "find",
-    "grep", "egrep", "fgrep", "which", "whereis", "file", "stat", "du",
-    "df", "free", "top", "ps", "env", "printenv", "id", "groups",
-    "python", "python3", "pip", "pip3", "node", "npm", "git", "go",
-    "java", "javac", "mvn", "gradle", "cargo", "rustc", "make", "cmake",
-    "curl", "wget", "ping", "nslookup", "dig", "ifconfig", "ip",
-    "mkdir", "touch", "cp", "mv", "ln", "chmod", "chown", "tar", "zip",
-    "unzip", "gzip", "gunzip", "sed", "awk", "xargs", "basename",
-    "dirname", "realpath", "readlink", "tee", "seq", "yes", "test",
-    "expr", "bc", "cal", "uptime", "w", "last", "dmesg", "lsof",
-    "netstat", "ss", "lscpu", "lsmem", "lsblk", "mount", "umount",
+    # 文件与目录查看
+    "ls", "cat", "echo", "pwd", "head", "tail", "wc", "sort", "uniq",
+    "cut", "tr", "diff", "find", "grep", "egrep", "fgrep", "which",
+    "whereis", "file", "stat", "du", "basename", "dirname", "realpath",
+    "readlink",
+    # 系统信息
+    "whoami", "hostname", "date", "uname", "id", "groups", "uptime",
+    "w", "last", "env", "printenv", "df", "free", "ps", "lscpu",
+    "lsmem", "lsblk",
+    # 网络诊断（只读）
+    "ping", "nslookup", "dig", "ifconfig", "ip", "netstat", "ss",
+    "lsof", "dmesg",
+    # 版本控制（只读操作安全）
+    "git",
+    # 文件操作
+    "mkdir", "touch", "cp", "mv", "ln", "tar", "zip", "unzip",
+    "gzip", "gunzip", "sed", "awk", "xargs", "tee", "seq", "yes",
+    "test", "expr", "bc", "cal",
 }
+
+# 已知可通过 -c / -e 等参数执行任意代码的解释器/编译器，
+# 即使通过其他途径出现在命令中也需要额外检查
+_INTERPRETER_COMMANDS = frozenset({
+    "python", "python3", "python3.11", "python3.12", "python3.10",
+    "pip", "pip3", "node", "npm", "npx", "go", "java", "javac",
+    "ruby", "perl", "php", "lua", "bash", "sh", "zsh",
+    "mvn", "gradle", "cargo", "rustc", "make", "cmake",
+    "curl", "wget",  # 可下载并管道执行任意脚本
+})
 
 # 命令最大长度限制 (字符)
 MAX_COMMAND_LENGTH = 1000
@@ -86,6 +106,10 @@ def _check_whitelist(command: str) -> tuple[bool, str]:
     """
     检查命令是否在白名单中 (基于首个 token)
     返回 (是否允许, 原因)
+
+    安全防护层级:
+    1. 基础名匹配白名单（去除路径前缀）
+    2. 解释器/编译器命令额外拦截（防止 -c/-e 参数绕过白名单执行任意代码）
     """
     try:
         tokens = shlex.split(command)
@@ -97,6 +121,13 @@ def _check_whitelist(command: str) -> tuple[bool, str]:
     base_cmd = os.path.basename(tokens[0])
     if base_cmd not in ALLOWED_COMMANDS:
         return False, f"命令 '{base_cmd}' 不在允许的白名单中"
+    # 二次检查：即使基础名在白名单中，若属于解释器类命令仍需拒绝
+    # 防止攻击者通过 python3 -c / node -e 等方式执行任意代码 (CWE-78)
+    if base_cmd in _INTERPRETER_COMMANDS:
+        return False, (
+            f"命令 '{base_cmd}' 属于解释器/编译器，"
+            "可通过 -c/-e 参数执行任意代码，出于安全考虑已禁止"
+        )
     return True, ""
 
 
