@@ -302,7 +302,7 @@ class OpenAIBackend(Backend):
         models = []
         try:
             def _fetch_models():
-                return requests.get(f"{self.base_url}/models", headers=self._headers, timeout=10)
+                return requests.get(f"{self.base_url}/models", headers=self._headers, timeout=10, timeout=30)
             resp = self._request_with_retry(_fetch_models)
             if resp.status_code == 200:
                 data = resp.json()
@@ -510,7 +510,7 @@ class LlamaCppBackend(Backend):
         """llama.cpp server 通常只运行一个模型"""
         models = []
         try:
-            resp = requests.get(f"{self.base_url}/props", timeout=5)
+            resp = requests.get(f"{self.base_url}/props", timeout=5, timeout=30)
             if resp.status_code == 200:
                 data = resp.json()
                 info = ModelInfo(
