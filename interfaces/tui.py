@@ -6,7 +6,7 @@
 import os
 import sys
 import json
-from typing import Optional
+from typing import ClassVar, Optional
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -182,7 +182,7 @@ class LLMClientTUI(App):
     }
     """
 
-    BINDINGS = [
+    BINDINGS: ClassVar[list] = [
         ("ctrl+q", "quit", "退出"),
         ("ctrl+s", "settings", "设置"),
         ("ctrl+c", "clear_chat", "清空"),
@@ -192,7 +192,7 @@ class LLMClientTUI(App):
     host = reactive("localhost")
     port = reactive(11434)
     current_model = reactive("")
-    models: list[ModelInfo] = []
+    models: list[ModelInfo] = reactive([])
 
     def __init__(self):
         super().__init__()
