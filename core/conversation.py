@@ -7,7 +7,10 @@
 """
 
 import json
+import logging
 import os
+
+logger = logging.getLogger(__name__)
 import re
 import time
 from dataclasses import dataclass, field, asdict
@@ -225,8 +228,8 @@ class Conversation:
         if self._auto_save_path:
             try:
                 self.save(self._auto_save_path)
-            except Exception:
-                pass  # 静默失败，不影响主流程
+            except Exception as e:
+                logger.debug(f"对话自动保存失败: {e}")
 
     @classmethod
     def load(cls, filepath: str) -> "Conversation":
