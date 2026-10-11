@@ -200,11 +200,6 @@ class OllamaBackend(Backend):
         return models
 
 
-            # 默认返回 jpeg
-            return "image/jpeg"
-        except Exception:
-            return "image/jpeg"
-
     def _convert_messages(self, messages: List[ChatMessage]) -> List[Dict[str, Any]]:
         """将内部消息格式转为 ollama 格式"""
         result = []
@@ -304,7 +299,7 @@ class OpenAIBackend(Backend):
         models = []
         try:
             def _fetch_models():
-                return requests.get(f"{self.base_url}/models", headers=self._headers, timeout=10, timeout=30)
+                return requests.get(f"{self.base_url}/models", headers=self._headers, timeout=30)
             resp = self._request_with_retry(_fetch_models)
             if resp.status_code == 200:
                 data = resp.json()
@@ -324,11 +319,6 @@ class OpenAIBackend(Backend):
                 models.append(ModelInfo(name=self.default_model, supports_vision=True, supports_tools=True))
         return models
 
-
-            # 默认返回 jpeg
-            return "image/jpeg"
-        except Exception:
-            return "image/jpeg"
 
     def _convert_messages(self, messages: List[ChatMessage]) -> List[Dict[str, Any]]:
         """将内部消息格式转为 OpenAI 格式"""
@@ -404,7 +394,6 @@ class OpenAIBackend(Backend):
                     headers=self._headers,
                     json=payload,
                     stream=True,
-                        timeout=30,
                     timeout=(10, 60),
                 )
             resp = self._request_with_retry(_make_request)
@@ -467,7 +456,6 @@ class OpenAIBackend(Backend):
                     f"{self.base_url}/chat/completions",
                     headers=self._headers,
                     json=payload,
-                        timeout=30,
                     timeout=(10, 60),
                 )
             resp = self._request_with_retry(_make_request)
@@ -499,7 +487,7 @@ class LlamaCppBackend(Backend):
         """llama.cpp server 通常只运行一个模型"""
         models = []
         try:
-            resp = requests.get(f"{self.base_url}/props", timeout=5, timeout=30)
+            resp = requests.get(f"{self.base_url}/props", timeout=30)
             if resp.status_code == 200:
                 data = resp.json()
                 info = ModelInfo(
@@ -515,11 +503,6 @@ class LlamaCppBackend(Backend):
             models.append(ModelInfo(name="llama.cpp-model", supports_vision=False, supports_tools=False))
         return models
 
-
-            # 默认返回 jpeg
-            return "image/jpeg"
-        except Exception:
-            return "image/jpeg"
 
     def _convert_messages(self, messages: List[ChatMessage]) -> List[Dict[str, Any]]:
         """转为 llama.cpp 的 chat completion 格式"""
@@ -579,7 +562,6 @@ class LlamaCppBackend(Backend):
                 f"{self.base_url}/v1/chat/completions",
                 json=payload,
                 stream=True,
-                    timeout=30,
                 timeout=(10, 60),
             )
             for raw_line in resp.iter_lines():
@@ -619,7 +601,6 @@ class LlamaCppBackend(Backend):
                 f"{self.base_url}/completion",
                 json=payload,
                 stream=True,
-                    timeout=30,
                 timeout=(10, 60),
             )
             for raw_line in resp.iter_lines():
@@ -673,7 +654,6 @@ class LlamaCppBackend(Backend):
             resp = requests.post(
                 f"{self.base_url}/v1/chat/completions",
                 json=payload,
-                    timeout=30,
                 timeout=(10, 60),
             )
             return resp.json()
