@@ -9,7 +9,7 @@ import logging
 from typing import List, Dict, Any, Optional, Generator, Callable
 from dataclasses import dataclass, field
 
-from .backend import Backend, ChatMessage, StreamChunk
+from .backend import Backend, StreamChunk
 from .conversation import Conversation
 from .tools.loader import ToolLoader
 
