@@ -11,7 +11,7 @@ import os
 import re
 import time
 from dataclasses import dataclass, field, asdict
-from typing import List, Dict, Any, Optional
+from typing import Any, Optional
 from .backend import ChatMessage
 
 
@@ -20,9 +20,9 @@ class Message:
     """内部消息表示"""
     role: str
     content: str
-    images: List[str] = field(default_factory=list)
+    images: list[str] = field(default_factory=list)
     timestamp: float = field(default_factory=time.time)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
     thinking: str = ""  # 模型思考过程（仅 assistant 消息）
 
     def to_chat_message(self) -> ChatMessage:
@@ -54,19 +54,19 @@ class Conversation:
     """对话会话"""
     id: str
     title: str = "新对话"
-    messages: List[Message] = field(default_factory=list)
+    messages: list[Message] = field(default_factory=list)
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
     model: str = ""
     system_prompt: str = ""
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
     _auto_save_path: Optional[str] = None
 
     def __post_init__(self):
         if not self.id:
             self.id = f"conv_{int(time.time() * 1000)}"
 
-    def add_message(self, role: str, content: str, images: List[str] = None, thinking: str = "", **kwargs) -> Message:
+    def add_message(self, role: str, content: str, images: list[str] = None, thinking: str = "", **kwargs) -> Message:
         """添加消息"""
         msg = Message(
             role=role,
@@ -91,7 +91,7 @@ class Conversation:
         self.updated_at = time.time()
         self.auto_save()
 
-    def get_context_messages(self, max_messages: int = 50) -> List[ChatMessage]:
+    def get_context_messages(self, max_messages: int = 50) -> list[ChatMessage]:
         """
         获取用于发送给模型的消息列表
         包含 system prompt 和最近的消息
@@ -148,7 +148,7 @@ class Conversation:
             total += int(chinese_chars * 1.5 + english_words * 1.5)
         return total
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "title": self.title,
@@ -171,7 +171,7 @@ class Conversation:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Conversation":
+    def from_dict(cls, data: dict[str, Any]) -> "Conversation":
         conv = cls(
             id=data.get("id", ""),
             title=data.get("title", "新对话"),
