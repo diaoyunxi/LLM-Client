@@ -200,11 +200,6 @@ class OllamaBackend(Backend):
         return models
 
 
-            # 默认返回 jpeg
-            return "image/jpeg"
-        except Exception:
-            return "image/jpeg"
-
     def _convert_messages(self, messages: List[ChatMessage]) -> List[Dict[str, Any]]:
         """将内部消息格式转为 ollama 格式"""
         result = []
@@ -324,11 +319,6 @@ class OpenAIBackend(Backend):
                 models.append(ModelInfo(name=self.default_model, supports_vision=True, supports_tools=True))
         return models
 
-
-            # 默认返回 jpeg
-            return "image/jpeg"
-        except Exception:
-            return "image/jpeg"
 
     def _convert_messages(self, messages: List[ChatMessage]) -> List[Dict[str, Any]]:
         """将内部消息格式转为 OpenAI 格式"""
@@ -514,12 +504,6 @@ class LlamaCppBackend(Backend):
             # 添加一个占位模型
             models.append(ModelInfo(name="llama.cpp-model", supports_vision=False, supports_tools=False))
         return models
-
-
-            # 默认返回 jpeg
-            return "image/jpeg"
-        except Exception:
-            return "image/jpeg"
 
     def _convert_messages(self, messages: List[ChatMessage]) -> List[Dict[str, Any]]:
         """转为 llama.cpp 的 chat completion 格式"""

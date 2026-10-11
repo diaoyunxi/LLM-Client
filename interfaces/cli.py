@@ -5,14 +5,13 @@
 
 import os
 import sys
-import json
 import argparse
 from typing import Optional
 
 # 将上级目录加入路径
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core.backend import OllamaBackend, LlamaCppBackend, StreamChunk
+from core.backend import OllamaBackend, LlamaCppBackend
 from core.conversation import Conversation
 from core.agent import AgentLoop
 from core.tools.loader import ToolLoader
