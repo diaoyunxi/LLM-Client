@@ -1,6 +1,6 @@
 # LLM 客户端
 
-一个支持 **Ollama** 和 **llama.cpp** 的通用 LLM 客户端，具备多模态支持、外置自定义工具、智能体循环和多轮对话能力。
+一个支持 **Ollama**、**OpenAI API** 和 **llama.cpp** 的通用 LLM 客户端，具备多模态支持、外置自定义工具、智能体循环和多轮对话能力。
 
 提供三种界面模式：**CLI（纯终端）**、**TUI（终端界面）**、**GUI（图形界面）**。
 
@@ -8,7 +8,7 @@
 
 ## 功能特性
 
-- **双后端支持**：同时兼容 Ollama（本地/远程）和 llama.cpp HTTP Server
+- **三后端支持**：同时兼容 Ollama（本地/远程）、OpenAI API 兼容接口和 llama.cpp HTTP Server
 - **多模态**：支持图片上传，供视觉模型（如 LLaVA）分析
 - **外置工具系统**：工具定义外置在独立 Python 文件中，通过文件头部注释声明，热加载无需重启
 - **智能体循环**：自动检测模型输出的工具调用，执行后自动将结果带回对话，支持多轮工具调用
@@ -26,7 +26,7 @@
 llm_llm_client/
 ├── core/                   # 后端核心模块
 │   ├── __init__.py         # 模块入口与公共导出
-│   ├── backend.py          # 后端抽象（OllamaBackend / LlamaCppBackend）
+│   ├── backend.py          # 后端抽象（OllamaBackend / OpenAIBackend / LlamaCppBackend）
 │   ├── conversation.py     # 多轮对话管理
 │   ├── agent.py            # 智能体循环（工具调用解析与执行）
 │   └── tools/              # 工具系统
@@ -88,6 +88,14 @@ ollama serve
 # 拉取模型
 ollama pull llama3.1
 ollama pull llava  # 视觉模型
+```
+
+**OpenAI API**：
+
+```bash
+# 设置环境变量或启动参数
+export OPENAI_API_KEY=your-api-key
+export OPENAI_BASE_URL=https://api.openai.com/v1  # 或其他兼容接口
 ```
 
 **llama.cpp**：
