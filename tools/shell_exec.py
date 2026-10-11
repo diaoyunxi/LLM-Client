@@ -23,11 +23,10 @@ TOOL_PARAMETERS:
         default: 10000
 """
 
-import subprocess
+import logging
 import os
 import shlex
-import logging
-
+import subprocess
 
 logger = logging.getLogger("shell_exec")
 
@@ -113,7 +112,7 @@ def _check_whitelist(command: str) -> tuple[bool, str]:
     """
     try:
         tokens = shlex.split(command)
-    except ValueError as e:
+    except ValueError:
         return False, "命令解析失败"
     if not tokens:
         return False, "命令为空"
@@ -180,7 +179,7 @@ def run(command: str, timeout: int = 30, working_dir: str = ".", max_output: int
                 "output": "",
                 "exit_code": -1,
             }
-    except ValueError as e:
+    except ValueError:
         return {
             "success": False,
             "error": "命令解析错误",

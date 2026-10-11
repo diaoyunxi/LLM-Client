@@ -9,10 +9,10 @@
 - get_tool / get_tool_definitions: 工具查询
 """
 
-import sys
 import os
-import tempfile
 import shutil
+import sys
+import tempfile
 from pathlib import Path
 
 # 将项目根目录加入 sys.path
@@ -21,7 +21,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import pytest
 
 from core.tools.loader import ToolLoader
-
 
 # ---------------------------------------------------------------------------
 # 测试用工具文件内容
