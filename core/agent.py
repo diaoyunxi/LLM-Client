@@ -84,8 +84,8 @@ class AgentLoop:
                 data = json.loads(match.group(1).strip())
                 if "tool" in data or "name" in data:
                     tool_calls.append(self._normalize_tool_call(data))
-            except json.JSONDecodeError:
-                pass
+            except json.JSONDecodeError as e:
+                logger.debug("Code block JSON parse failed: %s", e)
 
         # 尝试匹配内联 JSON 对象（支持嵌套大括号，如 parameters: {...}）
         # 使用大括号计数代替 [^}]*，以正确处理嵌套参数对象
@@ -104,8 +104,8 @@ class AgentLoop:
                             data = json.loads(candidate)
                             if "tool" in data or "name" in data:
                                 tool_calls.append(self._normalize_tool_call(data))
-                        except json.JSONDecodeError:
-                            pass
+                        except json.JSONDecodeError as e:
+                            logger.debug("Inline JSON parse failed: %s", e)
                         break
                 i += 1
 
