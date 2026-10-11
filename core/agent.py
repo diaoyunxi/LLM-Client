@@ -4,15 +4,14 @@
 """
 
 import json
-import re
 import logging
-from typing import List, Dict, Any, Optional, Generator, Callable
+import re
 from dataclasses import dataclass, field
+from typing import Any, Callable, Dict, Generator, List, Optional
 
 from .backend import Backend, ChatMessage, StreamChunk
 from .conversation import Conversation
 from .tools.loader import ToolLoader
-
 
 logger = logging.getLogger("agent")
 
