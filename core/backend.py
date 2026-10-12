@@ -304,7 +304,7 @@ class OpenAIBackend(Backend):
         models = []
         try:
             def _fetch_models():
-                return requests.get(f"{self.base_url}/models", headers=self._headers, timeout=10, timeout=30)
+                return requests.get(f"{self.base_url}/models", headers=self._headers, timeout=30)
             resp = self._request_with_retry(_fetch_models)
             if resp.status_code == 200:
                 data = resp.json()
@@ -404,7 +404,6 @@ class OpenAIBackend(Backend):
                     headers=self._headers,
                     json=payload,
                     stream=True,
-                        timeout=30,
                     timeout=(10, 60),
                 )
             resp = self._request_with_retry(_make_request)
@@ -467,7 +466,6 @@ class OpenAIBackend(Backend):
                     f"{self.base_url}/chat/completions",
                     headers=self._headers,
                     json=payload,
-                        timeout=30,
                     timeout=(10, 60),
                 )
             resp = self._request_with_retry(_make_request)
@@ -499,7 +497,7 @@ class LlamaCppBackend(Backend):
         """llama.cpp server 通常只运行一个模型"""
         models = []
         try:
-            resp = requests.get(f"{self.base_url}/props", timeout=5, timeout=30)
+            resp = requests.get(f"{self.base_url}/props", timeout=30)
             if resp.status_code == 200:
                 data = resp.json()
                 info = ModelInfo(
@@ -579,7 +577,6 @@ class LlamaCppBackend(Backend):
                 f"{self.base_url}/v1/chat/completions",
                 json=payload,
                 stream=True,
-                    timeout=30,
                 timeout=(10, 60),
             )
             for raw_line in resp.iter_lines():
@@ -619,7 +616,6 @@ class LlamaCppBackend(Backend):
                 f"{self.base_url}/completion",
                 json=payload,
                 stream=True,
-                    timeout=30,
                 timeout=(10, 60),
             )
             for raw_line in resp.iter_lines():
@@ -673,7 +669,6 @@ class LlamaCppBackend(Backend):
             resp = requests.post(
                 f"{self.base_url}/v1/chat/completions",
                 json=payload,
-                    timeout=30,
                 timeout=(10, 60),
             )
             return resp.json()
