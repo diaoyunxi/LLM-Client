@@ -68,7 +68,7 @@ ALLOWED_COMMANDS = {
     # 网络诊断（只读）
     "ping", "nslookup", "dig", "ifconfig", "ip", "netstat", "ss",
     "lsof", "dmesg",
-    # 版本控制（只读操作安全）
+    # 版本控制：git 需要子命令校验，由 _check_git_subcommand() 单独处理
     "git",
     # 文件操作
     "mkdir", "touch", "cp", "mv", "ln", "tar", "zip", "unzip",
@@ -85,6 +85,55 @@ _INTERPRETER_COMMANDS = frozenset({
     "mvn", "gradle", "cargo", "rustc", "make", "cmake",
     "curl", "wget",  # 可下载并管道执行任意脚本
 })
+
+# git 安全子命令白名单：仅允许只读/状态类操作
+# 禁止 commit/push/pull/add 等写操作，以及 -c/-C/--exec 等可执行任意命令的选项
+_GIT_SAFE_SUBCOMMANDS = frozenset({
+    "status", "log", "diff", "show", "branch", "tag", "remote",
+    "stash", "reflog", "shortlog", "blame", "describe",
+    "ls-files", "ls-remote", "rev-parse", "config",
+})
+
+# git 危险选项（可执行任意命令或修改仓库状态）
+_GIT_DANGEROUS_OPTS = frozenset({
+    "-c", "-C", "--exec", "--upload-pack", "--receive-pack",
+    "--ext-diff", "--textconv",
+})
+
+
+def _check_git_subcommand(command: str) -> tuple[bool, str]:
+    """
+    校验 git 子命令是否安全
+    返回 (是否允许, 原因)
+    """
+    try:
+        tokens = shlex.split(command)
+    except ValueError:
+        return False, "命令解析失败"
+
+    # 找到 git 命令位置
+    git_idx = -1
+    for i, t in enumerate(tokens):
+        if os.path.basename(t) == "git":
+            git_idx = i
+            break
+    if git_idx < 0:
+        return False, "未找到 git 命令"
+
+    # 检查 git 后的参数
+    subcmd = None
+    for t in tokens[git_idx + 1:]:
+        if t in _GIT_DANGEROUS_OPTS:
+            return False, f"git 选项 '{t}' 可执行任意命令，已禁止 (CWE-78)"
+        if not t.startswith("-"):
+            subcmd = t
+            break
+
+    if subcmd is None:
+        return False, "git 缺少子命令"
+    if subcmd not in _GIT_SAFE_SUBCOMMANDS:
+        return False, f"git 子命令 '{subcmd}' 不在安全白名单中（仅允许: {', '.join(sorted(_GIT_SAFE_SUBCOMMANDS))}）"
+    return True, ""
 
 # 命令最大长度限制 (字符)
 MAX_COMMAND_LENGTH = 1000
@@ -121,6 +170,12 @@ def _check_whitelist(command: str) -> tuple[bool, str]:
     base_cmd = os.path.basename(tokens[0])
     if base_cmd not in ALLOWED_COMMANDS:
         return False, f"命令 '{base_cmd}' 不在允许的白名单中"
+    # git 子命令校验：git 虽在白名单但部分子命令/选项可执行任意代码 (CWE-78)
+    if base_cmd == "git":
+        git_ok, git_reason = _check_git_subcommand(command)
+        if not git_ok:
+            return False, git_reason
+
     # 二次检查：即使基础名在白名单中，若属于解释器类命令仍需拒绝
     # 防止攻击者通过 python3 -c / node -e 等方式执行任意代码 (CWE-78)
     if base_cmd in _INTERPRETER_COMMANDS:
