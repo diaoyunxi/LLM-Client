@@ -436,7 +436,7 @@ class OpenAIBackend(Backend):
                             if thinking_text or content_text:
                                 yield StreamChunk(thinking=thinking_text, content=content_text)
                         except json.JSONDecodeError:
-                            pass
+                            logger.debug("SSE 流 JSON 解析失败，跳过该行")
         except Exception as e:
             logger.warning("OpenAI API 对话失败：%s", e)
             yield StreamChunk(content=f"\n[错误] {GENERIC_ERROR_MSG}\n")
@@ -599,7 +599,7 @@ class LlamaCppBackend(Backend):
                             if content:
                                 yield StreamChunk(content=content)
                         except json.JSONDecodeError:
-                            pass
+                            logger.debug("SSE 流 JSON 解析失败，跳过该行")
         except Exception:
             # 降级到 /completion 接口
             yield from self._fallback_completion(messages, temperature, **kwargs)
@@ -633,7 +633,7 @@ class LlamaCppBackend(Backend):
                             if content:
                                 yield StreamChunk(content=content)
                         except json.JSONDecodeError:
-                            pass
+                            logger.debug("SSE 流 JSON 解析失败，跳过该行")
                     else:
                         try:
                             chunk = json.loads(line)
@@ -641,7 +641,7 @@ class LlamaCppBackend(Backend):
                             if content:
                                 yield StreamChunk(content=content)
                         except json.JSONDecodeError:
-                            pass
+                            logger.debug("SSE 流 JSON 解析失败，跳过该行")
         except Exception as e:
             # 异常详情记录到日志, 向用户返回通用错误消息
             logger.warning("llama.cpp 连接失败: %s", e)
