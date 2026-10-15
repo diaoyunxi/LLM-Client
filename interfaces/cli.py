@@ -3,18 +3,16 @@
 最简洁的交互方式，无需额外依赖
 """
 
+import argparse
 import os
 import sys
-import json
-import argparse
-from typing import Optional
 
 # 将上级目录加入路径
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core.backend import OllamaBackend, LlamaCppBackend, StreamChunk
-from core.conversation import Conversation
 from core.agent import AgentLoop
+from core.backend import LlamaCppBackend, OllamaBackend
+from core.conversation import Conversation
 from core.tools.loader import ToolLoader
 
 
@@ -26,7 +24,7 @@ def print_banner():
     print()
 
 
-def select_model(backend) -> Optional[str]:
+def select_model(backend) -> str | None:
     """交互式选择模型"""
     models = backend.list_models()
     if not models:

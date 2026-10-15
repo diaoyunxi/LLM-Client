@@ -5,27 +5,50 @@
 
 import os
 import sys
-import json
-from typing import Optional, List
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core.backend import OllamaBackend, LlamaCppBackend, ModelInfo, StreamChunk
-from core.conversation import Conversation, Message
 from core.agent import AgentLoop
+from core.backend import LlamaCppBackend, OllamaBackend
+from core.conversation import Conversation, Message
 from core.tools.loader import ToolLoader
 
 try:
+    from PyQt6.QtCore import QSize, Qt, QThread, QTimer, pyqtSignal
+    from PyQt6.QtGui import QAction, QFont, QIcon, QImage, QPixmap
     from PyQt6.QtWidgets import (
-        QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-        QTextEdit, QLineEdit, QPushButton, QComboBox, QLabel, QSplitter,
-        QListWidget, QListWidgetItem, QFileDialog, QMessageBox, QTabWidget,
-        QGroupBox, QFormLayout, QSpinBox, QDoubleSpinBox, QCheckBox,
-        QDialog, QDialogButtonBox, QProgressBar, QSystemTrayIcon, QMenu,
-        QInputDialog, QPlainTextEdit, QFrame, QScrollArea, QSizePolicy
+        QApplication,
+        QCheckBox,
+        QComboBox,
+        QDialog,
+        QDialogButtonBox,
+        QDoubleSpinBox,
+        QFileDialog,
+        QFormLayout,
+        QFrame,
+        QGroupBox,
+        QHBoxLayout,
+        QInputDialog,
+        QLabel,
+        QLineEdit,
+        QListWidget,
+        QListWidgetItem,
+        QMainWindow,
+        QMenu,
+        QMessageBox,
+        QPlainTextEdit,
+        QProgressBar,
+        QPushButton,
+        QScrollArea,
+        QSizePolicy,
+        QSpinBox,
+        QSplitter,
+        QSystemTrayIcon,
+        QTabWidget,
+        QTextEdit,
+        QVBoxLayout,
+        QWidget,
     )
-    from PyQt6.QtCore import Qt, QThread, pyqtSignal, QSize, QTimer
-    from PyQt6.QtGui import QAction, QFont, QIcon, QPixmap, QImage
 except ImportError:
     _PYQT6_AVAILABLE = False
     print("请先安装 PyQt6: pip install PyQt6")
@@ -43,7 +66,7 @@ class ChatWorker(QThread):
     finished_signal = pyqtSignal()
     error_signal = pyqtSignal(str)
 
-    def __init__(self, agent: AgentLoop, text: str, images: List[str] = None):
+    def __init__(self, agent: AgentLoop, text: str, images: list[str] = None):
         super().__init__()
         self.agent = agent
         self.text = text
@@ -323,8 +346,8 @@ class MainWindow(QMainWindow):
         self.tool_loader = ToolLoader()
         self.agent = None
         self.current_model = ""
-        self.image_attachments: List[str] = []
-        self.chat_worker: Optional[ChatWorker] = None
+        self.image_attachments: list[str] = []
+        self.chat_worker: ChatWorker | None = None
 
         self._setup_ui()
         self._setup_menu()
@@ -728,7 +751,7 @@ class MainWindow(QMainWindow):
                 try:
                     encoded = self.backend.encode_image(f)
                     self.image_attachments.append(encoded)
-                except Exception as e:
+                except Exception:
                     QMessageBox.warning(self, "错误", "加载图片失败")
             self.image_label.setText(f"📎 已附加 {len(self.image_attachments)} 张图片")
 
@@ -760,7 +783,7 @@ class MainWindow(QMainWindow):
             try:
                 self.conversation.save(path)
                 QMessageBox.information(self, "成功", "对话已保存。")
-            except Exception as e:
+            except Exception:
                 QMessageBox.critical(self, "错误", "保存失败")
 
     def load_conversation(self):
@@ -781,7 +804,7 @@ class MainWindow(QMainWindow):
                     self.add_message_to_ui(msg)
                 self.update_history_list()
                 QMessageBox.information(self, "成功", "对话已加载。")
-            except Exception as e:
+            except Exception:
                 QMessageBox.critical(self, "错误", "加载失败")
 
     def update_history_list(self):
