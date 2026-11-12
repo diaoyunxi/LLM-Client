@@ -66,18 +66,9 @@ class AgentLoop:
                 logger.warning("步骤回调执行失败 (step_type=%s, tool=%s): %s",
                                step.step_type, step.tool_name, e)
 
-    def _extract_tool_calls(self, content: str) -> List[Dict[str, Any]]:
-        """
-        从模型回复中提取工具调用
-        支持多种格式：
-        1. Ollama 原生格式（已在外部解析）
-        2. JSON 格式: {"tool": "name", "parameters": {...}}
-        3. XML 格式: <tool name="...">...</tool>
-        4. Markdown 代码块: ```tool\n{...}\n```
-        """
+    def _extract_from_code_blocks(self, content: str) -> List[Dict[str, Any]]:
+        """从 Markdown 代码块中提取工具调用。"""
         tool_calls = []
-
-        # 尝试匹配 Markdown 代码块中的 JSON
         code_block_pattern = r'```(?:json|tool)?\s*\n(.*?)\n```'
         for match in re.finditer(code_block_pattern, content, re.DOTALL):
             try:
@@ -86,9 +77,11 @@ class AgentLoop:
                     tool_calls.append(self._normalize_tool_call(data))
             except json.JSONDecodeError:
                 pass
+        return tool_calls
 
-        # 尝试匹配内联 JSON 对象（支持嵌套大括号，如 parameters: {...}）
-        # 使用大括号计数代替 [^}]*，以正确处理嵌套参数对象
+    def _extract_from_inline_json(self, content: str) -> List[Dict[str, Any]]:
+        """从内联 JSON 对象中提取工具调用（支持嵌套大括号）。"""
+        tool_calls = []
         for m in re.finditer(r'\{\s*"(?:tool|name)"\s*:', content):
             start = m.start()
             depth = 0
@@ -108,8 +101,11 @@ class AgentLoop:
                             pass
                         break
                 i += 1
+        return tool_calls
 
-        # 尝试匹配 XML 格式
+    def _extract_from_xml(self, content: str) -> List[Dict[str, Any]]:
+        """从 XML 格式中提取工具调用。"""
+        tool_calls = []
         xml_pattern = r'<tool\s+name="([^"]+)"[^>]*>(.*?)</tool>'
         for match in re.finditer(xml_pattern, content, re.DOTALL):
             tool_name = match.group(1)
@@ -118,17 +114,35 @@ class AgentLoop:
             except Exception:
                 args = {"content": match.group(2).strip()}
             tool_calls.append({"name": tool_name, "arguments": args})
+        return tool_calls
 
-        # Deduplicate tool calls to prevent the same call from being matched
-        # by multiple patterns (code block + inline JSON + XML)
-        seen = set()
-        unique_calls = []
+    @staticmethod
+    def _deduplicate_tool_calls(tool_calls: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """去重：同一工具+参数的调用只保留一份。"""
+        seen: set = set()
+        unique: List[Dict[str, Any]] = []
         for tc in tool_calls:
             key = (tc.get("name", ""), str(sorted(tc.get("arguments", {}).items())))
             if key not in seen:
                 seen.add(key)
-                unique_calls.append(tc)
-        return unique_calls
+                unique.append(tc)
+        return unique
+
+    def _extract_tool_calls(self, content: str) -> List[Dict[str, Any]]:
+        """
+        从模型回复中提取工具调用。
+
+        支持多种格式：
+        1. Ollama 原生格式（已在外部解析）
+        2. JSON 格式: {"tool": "name", "parameters": {...}}
+        3. XML 格式: <tool name="...">...</tool>
+        4. Markdown 代码块: ```tool\\n{...}\\n```
+        """
+        tool_calls: List[Dict[str, Any]] = []
+        tool_calls.extend(self._extract_from_code_blocks(content))
+        tool_calls.extend(self._extract_from_inline_json(content))
+        tool_calls.extend(self._extract_from_xml(content))
+        return self._deduplicate_tool_calls(tool_calls)
 
     def _normalize_tool_call(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """规范化工具调用格式"""
