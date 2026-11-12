@@ -5,25 +5,35 @@
 
 import os
 import sys
-import json
-from typing import ClassVar, Optional
+from typing import ClassVar
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core.backend import OllamaBackend, LlamaCppBackend, ModelInfo, StreamChunk
-from core.conversation import Conversation, Message
 from core.agent import AgentLoop
+from core.backend import LlamaCppBackend, ModelInfo, OllamaBackend
+from core.conversation import Conversation, Message
 from core.tools.loader import ToolLoader
 
 try:
     from textual.app import App, ComposeResult
-    from textual.widgets import (
-        Header, Footer, Input, Static, Button, Select, Label,
-        ListView, ListItem, TextArea, Markdown, LoadingIndicator,
-        TabbedContent, TabPane
-    )
-    from textual.containers import Horizontal, Vertical, VerticalScroll, Container
+    from textual.containers import Container, Horizontal, Vertical, VerticalScroll
     from textual.reactive import reactive
+    from textual.widgets import (
+        Button,
+        Footer,
+        Header,
+        Input,
+        Label,
+        ListItem,
+        ListView,
+        LoadingIndicator,
+        Markdown,
+        Select,
+        Static,
+        TabbedContent,
+        TabPane,
+        TextArea,
+    )
     from textual.worker import Worker
 except ImportError:
     print("请先安装 textual: pip install textual")
@@ -428,7 +438,7 @@ class LLMClientTUI(App):
                     self.image_attachments.append(encoded)
                     self.query_one("#image-status", Static).update(f"已加载: {os.path.basename(path)}")
                     self.notify(f"图片已加载: {path}", severity="information")
-                except Exception as e:
+                except Exception:
                     self.notify("图片加载失败", severity="error")
             else:
                 self.notify("文件不存在", severity="error")
@@ -436,7 +446,7 @@ class LLMClientTUI(App):
             try:
                 self.conversation.save(parts[1].strip())
                 self.notify("对话已保存", severity="information")
-            except Exception as e:
+            except Exception:
                 self.notify("保存失败", severity="error")
         elif cmd == "load" and len(parts) > 1:
             try:
@@ -449,7 +459,7 @@ class LLMClientTUI(App):
                 for msg in self.conversation.messages:
                     self.add_message_widget(msg)
                 self.notify("对话已加载", severity="information")
-            except Exception as e:
+            except Exception:
                 self.notify("加载失败", severity="error")
         else:
             self.notify(f"未知命令: {cmd}", severity="warning")

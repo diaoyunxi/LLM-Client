@@ -13,12 +13,11 @@ TOOL_PARAMETERS:
         default: 5
 """
 
-import requests
-import re
-import json
 import logging
+import re
 from urllib.parse import quote_plus, unquote
 
+import requests
 
 logger = logging.getLogger("web_search")
 
@@ -38,9 +37,7 @@ def _is_safe_url(url: str) -> bool:
         host = (parsed.hostname or "").lower()
         if host in _BLOCKED_HOSTS:
             return False
-        if any(host.startswith(p) for p in _BLOCKED_PREFIXES):
-            return False
-        return True
+        return not any(host.startswith(p) for p in _BLOCKED_PREFIXES)
     except Exception:
         return False
 
