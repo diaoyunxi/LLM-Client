@@ -99,7 +99,8 @@ def run(expression: str):
                 allowed_names = {
                     # 注意: pi 和 e 是常量（ast.Name 节点），不应放在 allowed_funcs 中
                     # 否则用户写 pi() 或 e() 会触发 TypeError（float 不可调用）
-                    # 它们已在下方 allowed_names 中正确处理
+                    'pi': math.pi,
+                    'e': math.e,
                     'inf': math.inf,
                     'nan': math.nan,
                 }
