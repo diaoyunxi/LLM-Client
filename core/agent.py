@@ -23,7 +23,7 @@ class AgentStep:
     step_type: str  # "think" / "tool_call" / "tool_result" / "respond"
     content: str = ""
     tool_name: str = ""
-    tool_args: Dict[str, Any] = field(default_factory=dict)
+    tool_args: dict[str, Any] = field(default_factory=dict)
     tool_result: Any = None
     tool_error: str = ""
 
@@ -51,7 +51,7 @@ class AgentLoop:
         self.max_iterations = max_iterations
         self.temperature = temperature
         self.think = think
-        self.step_callbacks: List[Callable[[AgentStep], None]] = []
+        self.step_callbacks: list[Callable[[AgentStep], None]] = []
 
     def add_step_callback(self, callback: Callable[[AgentStep], None]) -> None:
         """添加步骤回调，用于界面更新"""
@@ -66,7 +66,7 @@ class AgentLoop:
                 logger.warning("步骤回调执行失败 (step_type=%s, tool=%s): %s",
                                step.step_type, step.tool_name, e)
 
-    def _extract_tool_calls(self, content: str) -> List[Dict[str, Any]]:
+    def _extract_tool_calls(self, content: str) -> list[dict[str, Any]]:
         """
         从模型回复中提取工具调用
         支持多种格式：
@@ -130,7 +130,7 @@ class AgentLoop:
                 unique_calls.append(tc)
         return unique_calls
 
-    def _normalize_tool_call(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    def _normalize_tool_call(self, data: dict[str, Any]) -> dict[str, Any]:
         """规范化工具调用格式"""
         name = data.get("tool") or data.get("name") or (data.get("function") or {}).get("name", "")
         args = data.get("parameters") or data.get("arguments") or data.get("params") or {}
@@ -148,7 +148,7 @@ class AgentLoop:
     def run(
         self,
         user_input: str,
-        images: Optional[List[str]] = None,
+        images: list[str] | None = None,
         stream: bool = True,
     ) -> Generator[StreamChunk, None, None]:
         """
