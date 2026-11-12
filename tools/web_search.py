@@ -24,17 +24,29 @@ logger = logging.getLogger("web_search")
 
 
 # SSRF 防护：禁止访问私有/内部地址 (CWE-918)
-_BLOCKED_HOSTS = {"localhost", "127.0.0.1", "0.0.0.0", "[::1]", "169.254.169.254"}
+_BLOCKED_HOSTS = {
+    "localhost", "127.0.0.1", "0.0.0.0", "[::1]", "::1",
+    "169.254.169.254",  # AWS/GCP 元数据
+    "metadata.google.internal",  # GCP 元数据
+    "[fd00::1]",  # ULA
+}
+_ALLOWED_SCHEMES = {"http", "https"}
 _BLOCKED_PREFIXES = ("10.", "172.16.", "172.17.", "172.18.", "172.19.", "172.20.",
                      "172.21.", "172.22.", "172.23.", "172.24.", "172.25.",
                      "172.26.", "172.27.", "172.28.", "172.29.", "172.30.",
-                     "172.31.", "192.168.", "100.64.")
+                     "172.31.", "192.168.", "100.64.", "127.")
 
 def _is_safe_url(url: str) -> bool:
-    """校验 URL 是否指向公网地址，防止 SSRF 攻击 (CWE-918)"""
+    """校验 URL 是否指向公网地址，防止 SSRF 攻击 (CWE-918)
+
+    同时校验 scheme 仅允许 http/https，防止 file://、gopher:// 等协议滥用。
+    """
     from urllib.parse import urlparse
     try:
         parsed = urlparse(url)
+        # Scheme 校验：仅允许 http/https
+        if parsed.scheme.lower() not in _ALLOWED_SCHEMES:
+            return False
         host = (parsed.hostname or "").lower()
         if host in _BLOCKED_HOSTS:
             return False
