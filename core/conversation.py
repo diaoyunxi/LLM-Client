@@ -10,8 +10,9 @@ import json
 import os
 import re
 import time
-from dataclasses import dataclass, field, asdict
-from typing import List, Dict, Any, Optional
+from dataclasses import asdict, dataclass, field
+from typing import Any, Dict, List, Optional
+
 from .backend import ChatMessage
 
 
@@ -225,8 +226,8 @@ class Conversation:
         if self._auto_save_path:
             try:
                 self.save(self._auto_save_path)
-            except Exception:
-                pass  # 静默失败，不影响主流程
+            except Exception as _e:
+                import logging as _logging; _logging.getLogger(__name__).debug("自动保存对话失败: %s", _e)
 
     @classmethod
     def load(cls, filepath: str) -> "Conversation":
