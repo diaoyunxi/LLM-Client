@@ -9,7 +9,6 @@ TOOL_PARAMETERS:
 """
 
 import math
-import operator
 import ast
 
 
