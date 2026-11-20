@@ -86,6 +86,20 @@ _INTERPRETER_COMMANDS = frozenset({
     "curl", "wget",  # 可下载并管道执行任意脚本
 })
 
+# 即使通过白名单，仍需检查特定命令的危险参数/子命令
+# 防止通过合法命令的特定参数绕过安全限制 (CWE-78)
+_SUBCOMMAND_RESTRICTIONS = {
+    "git": {
+        # git 的只读子命令白名单 — 其他子命令（如 clone/push/pull 可能执行远程代码）
+        "allowed_subcommands": {
+            "status", "log", "diff", "show", "branch", "tag", "remote",
+            "stash", "reflog", "shortlog", "blame", "describe", "rev-parse",
+            "ls-files", "ls-remote", "config", "help", "version",
+        },
+        "dangerous_flags": {"--upload-pack", "--receive-pack", "--exec"},
+    },
+}
+
 # 命令最大长度限制 (字符)
 MAX_COMMAND_LENGTH = 1000
 
@@ -128,6 +142,35 @@ def _check_whitelist(command: str) -> tuple[bool, str]:
             f"命令 '{base_cmd}' 属于解释器/编译器，"
             "可通过 -c/-e 参数执行任意代码，出于安全考虑已禁止"
         )
+    # 子命令级别二次校验（如 git 仅允许只读子命令）
+    sub_ok, sub_reason = _check_subcommand(tokens)
+    if not sub_ok:
+        return False, sub_reason
+    return True, ""
+
+
+def _check_subcommand(tokens: list[str]) -> tuple[bool, str]:
+    """
+    对特定命令进行子命令/参数级别的二次校验
+    返回 (是否允许, 原因)
+    """
+    base_cmd = os.path.basename(tokens[0])
+    restrictions = _SUBCOMMAND_RESTRICTIONS.get(base_cmd)
+    if not restrictions:
+        return True, ""
+    # 检查危险参数
+    for flag in restrictions.get("dangerous_flags", set()):
+        if flag in tokens[1:]:
+            return False, f"命令 '{base_cmd}' 的参数 '{flag}' 可执行任意代码，已禁止"
+    # 检查子命令白名单
+    allowed_subs = restrictions.get("allowed_subcommands")
+    if allowed_subs and len(tokens) > 1:
+        sub = tokens[1]
+        if not sub.startswith("-") and sub not in allowed_subs:
+            return False, (
+                f"命令 '{base_cmd} {sub}' 的子命令不在只读白名单中，"
+                "仅允许 status/log/diff/show 等只读操作"
+            )
     return True, ""
 
 
